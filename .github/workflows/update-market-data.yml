@@ -48,7 +48,19 @@ jobs:
           git add -A data/
           if git diff --staged --quiet; then
             echo "No data changes to commit."
-          else
-            git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
-            git push
+            exit 0
           fi
+          git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
+          # Web edits (basket saves) often land on main while this job runs.
+          # Rebase onto latest main and retry the push a few times.
+          for i in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              echo "Pushed on attempt $i"
+              exit 0
+            fi
+            echo "Push conflict (attempt $i); retrying..."
+            sleep $((i * 3))
+            git rebase --abort 2>/dev/null || true
+          done
+          echo "Failed to push data refresh after retries"
+          exit 1
