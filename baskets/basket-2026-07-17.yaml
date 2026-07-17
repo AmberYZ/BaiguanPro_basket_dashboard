@@ -1,0 +1,23 @@
+id: basket-2026-07-17
+name: 内需弱 + 海外强（盈利反转？）
+status: proposed
+author: Amber
+created: '2026-07-17'
+inception: '2026-07-17'
+tags:
+- global-expansion
+thesis: ''
+benchmarks:
+- CSI300
+- SPX
+- NDX
+newsletters: []
+watchpoints:
+- SOFC（固体氧化物燃料电池）落地情况
+- AI Datacenter整体build-out，是否有放缓迹象，缺电迹象是否持续，是否依然依赖备用能源以及种类是否有变化
+team_charts: []
+constituents:
+- ticker: 000338.SZ
+  name: Weichai Power Co Ltd Class A
+  weight: 1.0
+  note: AIDC 备用电源，已经进入北美市场；国内传统柴油机相对增速不高
