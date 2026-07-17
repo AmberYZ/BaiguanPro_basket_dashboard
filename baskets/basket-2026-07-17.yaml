@@ -21,3 +21,27 @@ constituents:
   name: Weichai Power Co Ltd Class A
   weight: 1.0
   note: AIDC 备用电源，已经进入北美市场；国内传统柴油机相对增速不高
+- ticker: 01211.HK
+  name: BYD Company Limited
+  weight: 1.0
+  note: ''
+- ticker: 600031.SH
+  name: Sany Heavy Industry Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 06690.HK
+  name: Haier Smart Home Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 300750.SZ
+  name: CATL
+  weight: 1.0
+  note: ''
+- ticker: 02899.HK
+  name: Zijin Mining Group Co Ltd-H
+  weight: 1.0
+  note: ''
+- ticker: 00300.HK
+  name: Midea Group Co., Ltd.
+  weight: 1.0
+  note: ''
