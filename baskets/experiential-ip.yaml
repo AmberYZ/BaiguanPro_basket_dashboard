@@ -51,3 +51,7 @@ constituents:
   name: 大麦娱乐
   weight: 1.0
   note: 演唱会/Live events
+- ticker: 00780.HK
+  name: 同程旅行
+  weight: 1.0
+  note: OTA/旅行
