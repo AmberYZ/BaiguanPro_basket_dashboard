@@ -986,7 +986,7 @@ def fetch_news_eodhd(ticker: str, limit: int = 5) -> list[dict]:
 
 
 def fetch_news_akshare(ticker: str, limit: int = 5) -> list[dict]:
-    """Eastmoney headlines via akshare — fallback for HK / A-shares."""
+    """Eastmoney headlines via akshare (A-shares and HK)."""
     try:
         import akshare as ak
 
@@ -1018,123 +1018,26 @@ def fetch_news_akshare(ticker: str, limit: int = 5) -> list[dict]:
 
 
 def fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
-    """Per-ticker headlines: EODHD first, akshare (Eastmoney) as fallback."""
-    articles = fetch_news_eodhd(ticker, limit)
-    if not articles:
-        articles = fetch_news_akshare(ticker, limit)
-    return articles
-
-
-def merge_basket_news(
-    tickers: list[str],
-    *,
-    limit_per_ticker: int = 3,
-) -> list[dict]:
-    """Merge and de-dupe headlines across basket constituents, newest first."""
+    """Per-ticker headlines from all available sources, de-duped, newest first."""
     merged: list[dict] = []
     seen: set[str] = set()
-    for ticker in tickers:
-        for article in fetch_ticker_news(ticker, limit_per_ticker):
-            key = article.get("link") or article.get("title")
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            merged.append(article)
+    for article in (
+        *fetch_news_eodhd(ticker, limit),
+        *fetch_news_akshare(ticker, limit),
+    ):
+        key = article.get("link") or article.get("title")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(article)
     merged.sort(key=lambda item: item.get("date") or "", reverse=True)
-    return merged
-
-
-# ---------------------------------------------------------------- News
-
-def _akshare_news_symbol(ticker: str) -> str:
-    """Symbol for akshare ``stock_news_em`` (Eastmoney search)."""
-    code, suffix = ticker.split(".")
-    suffix = suffix.upper()
-    if suffix == "HK":
-        return code.lstrip("0") or "0"
-    return code.zfill(6)
-
-
-def fetch_news_eodhd(ticker: str, limit: int = 5) -> list[dict]:
-    """Headlines for one ticker via EODHD (A-shares + HK when covered)."""
-    if not EODHD_API_KEY:
-        return []
-    try:
-        resp = requests.get(
-            "https://eodhd.com/api/news",
-            params={
-                "s": _eodhd_symbol(ticker),
-                "limit": max(1, min(limit, 50)),
-                "api_token": EODHD_API_KEY,
-                "fmt": "json",
-            },
-            timeout=15,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-        if not isinstance(payload, list):
-            return []
-        articles = []
-        for item in payload:
-            title = str(item.get("title") or "").strip()
-            if not title:
-                continue
-            articles.append({
-                "title": title,
-                "date": str(item.get("date") or "")[:10],
-                "link": str(item.get("link") or "").strip(),
-                "source": "EODHD",
-                "ticker": ticker,
-            })
-        return articles
-    except Exception:  # noqa: BLE001
-        return []
-
-
-def fetch_news_akshare(ticker: str, limit: int = 5) -> list[dict]:
-    """Eastmoney headlines via akshare — fallback for HK / A-shares."""
-    try:
-        import akshare as ak
-
-        symbol = _akshare_news_symbol(ticker)
-        df = ak.stock_news_em(symbol=symbol)
-        if df is None or df.empty:
-            return []
-        articles = []
-        for _, row in df.head(limit).iterrows():
-            title = row.get("新闻标题") or row.get("title")
-            if title is None or (isinstance(title, float) and pd.isna(title)):
-                continue
-            title = str(title).strip()
-            if not title:
-                continue
-            link = row.get("新闻链接") or row.get("link") or ""
-            pub = row.get("发布时间") or row.get("public_time") or ""
-            src = row.get("文章来源") or "东方财富"
-            articles.append({
-                "title": title,
-                "date": str(pub)[:10],
-                "link": str(link).strip() if link is not None else "",
-                "source": str(src),
-                "ticker": ticker,
-            })
-        return articles
-    except Exception:  # noqa: BLE001
-        return []
-
-
-def fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
-    """Per-ticker headlines: EODHD first, akshare (Eastmoney) as fallback."""
-    articles = fetch_news_eodhd(ticker, limit)
-    if not articles:
-        articles = fetch_news_akshare(ticker, limit)
-    return articles
+    return merged[:limit]
 
 
 def merge_basket_news(
     tickers: list[str],
     *,
-    limit_per_ticker: int = 3,
+    limit_per_ticker: int = 5,
 ) -> list[dict]:
     """Merge and de-dupe headlines across basket constituents, newest first."""
     merged: list[dict] = []

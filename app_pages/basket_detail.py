@@ -178,25 +178,20 @@ st.caption("EPS Gr. (1Y) = EODHD consensus forward EPS growth (+1y). No multi-ye
 
 st.markdown("#### Constituent news")
 news_count_key = f"news_count_{b.id}"
+news_cache_key = f"news_cache_{b.id}"
 st.session_state.setdefault(news_count_key, 8)
-st.caption(
-    "Headlines for basket tickers — EODHD where available, Eastmoney (akshare) as fallback for HK / A-shares."
-)
-if st.button("Load headlines", key=f"load_news_{b.id}"):
+st.caption("Headlines from EODHD and Eastmoney (akshare), merged for all basket tickers.")
+if news_cache_key not in st.session_state:
     with st.spinner("Fetching news…"):
-        st.session_state[f"news_cache_{b.id}"] = merge_basket_news(tickers, limit_per_ticker=3)
-        st.session_state[news_count_key] = 8
+        st.session_state[news_cache_key] = merge_basket_news(tickers, limit_per_ticker=5)
 
-cached_news = st.session_state.get(f"news_cache_{b.id}")
-if cached_news is not None:
-    shown = st.session_state[news_count_key]
-    news_feed(cached_news, start=0, count=shown)
-    if shown < len(cached_news):
-        if st.button(f"Show more ({len(cached_news) - shown} left)", key=f"more_news_{b.id}"):
-            st.session_state[news_count_key] = min(shown + 8, len(cached_news))
-            st.rerun()
-else:
-    st.caption("Click **Load headlines** to fetch the latest stories (not loaded automatically).")
+cached_news = st.session_state.get(news_cache_key) or []
+shown = st.session_state[news_count_key]
+news_feed(cached_news, start=0, count=shown)
+if shown < len(cached_news):
+    if st.button(f"Show more ({len(cached_news) - shown} left)", key=f"more_news_{b.id}"):
+        st.session_state[news_count_key] = min(shown + 8, len(cached_news))
+        st.rerun()
 
 chart_modules = load_chart_modules()
 chart_options = {chart_title(mod): slug for slug, mod in chart_modules}
