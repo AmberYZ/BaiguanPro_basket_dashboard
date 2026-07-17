@@ -23,7 +23,26 @@ newsletters:
 watchpoints: []
 team_charts: []
 constituents:
-- ticker: 002920.SZ
-  name: 德赛西威
+- ticker: 02525.HK
+  name: Hesai Group Class B
   weight: 1.0
-  note: Leading domain controller supplier, NVIDIA ecosystem
+  note: Hesai is the global leader in three-dimensional light detection and ranging
+    (LiDAR) solutions. LiDAR serves as the “eyes” of autonomous vehicles and robots
+    by emitting laser pulses to measure distances and create high-resolution, real-time
+    3D maps of the surrounding environment.  Hesai is a market leader with 61% market
+    share in the global L4 autonomous driving LiDAR segment
+- ticker: 02026.HK
+  name: Pony AI Inc.
+  weight: 1.0
+  note: Pony.ai has emerged as one of the fastest-growing robotaxi operators in China.
+- ticker: 09868.HK
+  name: Xpeng Inc
+  weight: 1.0
+  note: Xpeng has always been among the first Chinese EV makers to prioritize smart
+    driving.
+- ticker: 09660.HK
+  name: Horizon Robotics
+  weight: 1.0
+  note: Horizon Robotics is the “brain”. Horizon Robotics is a leading provider of
+    ADAS and AD solutions for passenger vehicles, with a comprehensive portfolio that
+    spans from basic active safety features to high-level urban autonomous driving.
