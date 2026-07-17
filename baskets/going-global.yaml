@@ -1,0 +1,48 @@
+id: going-global
+name: Going Global - EV & Advanced Manufacturing Exporters
+status: active
+author: Baiguan Team
+created: 2026-04-01
+inception: 2026-04-01
+tags:
+- going-overseas
+- EV
+- machinery
+- global-expansion
+thesis: 'Chinese manufacturers are turning overseas expansion from a revenue supplement
+  into a second growth curve - EVs, machinery, industrial automation and auto parts
+  with real localized production abroad. We focus on names where overseas revenue
+  share is rising and margins overseas are higher than domestic.
+
+  '
+benchmarks:
+- CSI300
+- SPX
+newsletters:
+- title: Introducing Baiguan Pro - Our View on Chinese Assets
+  url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
+  date: 2026-04-01
+watchpoints: []
+team_charts:
+- basket_valuation_map
+constituents:
+- ticker: 002594.SZ
+  name: 比亚迪
+  weight: null
+  note: EV exports + overseas plants (Thailand, Brazil, Hungary)
+- ticker: 600031.SH
+  name: 三一重工
+  weight: null
+  note: Construction machinery, overseas revenue share > 40%
+- ticker: 300124.SZ
+  name: 汇川技术
+  weight: null
+  note: Industrial automation champion expanding abroad
+- ticker: 601100.SH
+  name: 恒立液压
+  weight: null
+  note: Hydraulics global
+- ticker: 600660.SH
+  name: 福耀玻璃
+  weight: null
+  note: Auto glass global leader, US/EU localized capacity

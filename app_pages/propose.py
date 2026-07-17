@@ -1,0 +1,186 @@
+from datetime import date
+import re
+
+import pandas as pd
+import streamlit as st
+
+from app_pages._shared import get_baskets
+from src.baskets import save_basket
+from src.data import quote_snapshot, search_tickers
+from src.ui import internal_badge, internal_page, tag_filter
+
+UNIVERSAL_BENCHMARKS = ["CSI300", "SPX", "NDX"]
+
+
+def slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or f"basket-{date.today().isoformat()}"
+
+
+def fmt_quote(q: dict | None) -> str:
+    if not q:
+        return "no price yet"
+    chg = q.get("chg_1d")
+    chg_txt = f"  {chg:+.1%}" if chg is not None else ""
+    return f"close {q['price']:.2f}{chg_txt} · {q['asof']}"
+
+
+st.session_state.setdefault("proposal_constituents", [])
+st.session_state.setdefault("search_results", None)
+st.session_state.setdefault("search_quotes", {})
+st.session_state.setdefault("last_query", "")
+
+internal_page()
+st.title("Propose a new basket")
+internal_badge("Internal workflow — proposals never appear in the share view until activated.")
+st.caption(
+    "Benchmarks are universal (CSI300 / SPX / NDX) and the ID is auto-generated. "
+    "After submitting, open the basket in Basket Detail and click Approve and activate."
+)
+
+st.markdown("### 1 · Basket basics")
+name = st.text_input("Basket name", placeholder="e.g. National Team Floor Plays")
+author = st.text_input("Proposed by", placeholder="your name")
+thesis = st.text_area(
+    "Thesis / narrative", height=150,
+    placeholder="Why does this basket exist? What is the catalyst, what would make us wrong?",
+)
+existing_tags = sorted({t for b in get_baskets() for t in b.tags})
+st.caption("Tags — tap to select; type below to add a new one")
+picked = tag_filter(existing_tags, key="propose_tags") if existing_tags else []
+new_tag = st.text_input("New tag (optional)", placeholder="e.g. soft-landing")
+tags = list(dict.fromkeys([*picked, new_tag.strip()] if new_tag.strip() else picked))
+newsletter = st.text_input("Related newsletter URL (optional)")
+
+st.markdown("### 2 · Add constituents")
+st.caption(
+    "Search tries, in order: direct code → EODHD HK/A symbol lists → EODHD search API → "
+    "basket YAML names → local fundamentals cache. "
+    "HK stocks (e.g. Pop Mart) resolve via the EODHD exchange list / code; "
+    "price history + Fwd PE / PEG come from EODHD, PE/PB from Baidu via akshare."
+)
+search_col, btn_col = st.columns([4, 1])
+with search_col:
+    query = st.text_input(
+        "Search by ticker or company name",
+        placeholder="e.g. Pop Mart, 09992, BYD, 002594",
+        label_visibility="collapsed",
+    )
+with btn_col:
+    do_search = st.button("Search", type="primary", width="stretch")
+
+if do_search and query.strip():
+    with st.spinner("Searching via EODHD…"):
+        results = search_tickers(query)
+        quotes = {}
+        for item in results:
+            quotes[item["ticker"]] = quote_snapshot(item["ticker"])
+        st.session_state.search_results = results
+        st.session_state.search_quotes = quotes
+        st.session_state.last_query = query
+elif do_search:
+    st.session_state.search_results = None
+    st.warning("Type a ticker or company name first.")
+
+results = st.session_state.search_results
+quotes = st.session_state.search_quotes
+if results is not None:
+    in_draft = {c["ticker"] for c in st.session_state.proposal_constituents}
+    if not results:
+        st.error(
+            f'No match for "{st.session_state.last_query}". '
+            "Try another spelling, the numeric code, or the English company name."
+        )
+    else:
+        st.success(
+            f'{len(results)} match(es) for "{st.session_state.last_query}" — '
+            "check the close price, then click ＋ to add."
+        )
+        for i, item in enumerate(results):
+            q = quotes.get(item["ticker"])
+            cols = st.columns([1.3, 2.4, 2.2, 0.8])
+            cols[0].code(item["ticker"])
+            cols[1].write(item["name"])
+            cols[2].caption(fmt_quote(q))
+            if item["ticker"] in in_draft:
+                cols[3].button("Added", key=f"added_{i}", disabled=True)
+            elif cols[3].button("＋ Add", key=f"add_{i}_{item['ticker']}"):
+                st.session_state.proposal_constituents.append({
+                    "ticker": item["ticker"],
+                    "name": item["name"],
+                    "weight": 1.0,
+                    "rationale": "",
+                })
+                st.toast(f"Added {item['name']} ({item['ticker']})")
+                st.rerun()
+
+st.markdown("### 3 · Draft basket")
+draft = st.session_state.proposal_constituents
+if not draft:
+    st.info("No constituents yet — search above and add them one by one.")
+else:
+    st.caption(f"{len(draft)} constituent(s). Weight defaults to 1 (equal-weighted; "
+               "values are normalized). Fill in the constituent rationale — it shows up "
+               "in Basket Detail.")
+    edited = st.data_editor(
+        draft,
+        hide_index=True,
+        width="stretch",
+        num_rows="dynamic",
+        column_config={
+            "ticker": st.column_config.TextColumn("Ticker", disabled=True),
+            "name": st.column_config.TextColumn("Name"),
+            "weight": st.column_config.NumberColumn(
+                "Weight", min_value=0.0, step=1.0,
+                help="Default 1 = equal weight across names.",
+            ),
+            "rationale": st.column_config.TextColumn("Constituent rationale", width="large"),
+        },
+    )
+    if isinstance(edited, pd.DataFrame):
+        st.session_state.proposal_constituents = edited.to_dict("records")
+    else:
+        st.session_state.proposal_constituents = edited
+
+st.markdown("### 4 · Submit")
+if st.button("Create proposal", type="primary", disabled=not (name and draft)):
+    basket_id = slugify(name)
+    existing_ids = {b.id for b in get_baskets()}
+    base_id, suffix = basket_id, 2
+    while basket_id in existing_ids:
+        basket_id = f"{base_id}-{suffix}"
+        suffix += 1
+
+    today = date.today().isoformat()
+    data = {
+        "id": basket_id,
+        "name": name,
+        "status": "proposed",
+        "author": author,
+        "created": today,
+        "inception": today,
+        "tags": list(tags),
+        "thesis": thesis,
+        "benchmarks": UNIVERSAL_BENCHMARKS,
+        "newsletters": ([{"title": "Related piece", "url": newsletter, "date": today}]
+                        if newsletter else []),
+        "watchpoints": [],
+        "team_charts": [],
+        "constituents": [
+            {"ticker": c["ticker"], "name": c["name"],
+             "weight": 1.0 if c.get("weight") is None else c.get("weight"),
+             "note": c.get("rationale", "")}
+            for c in st.session_state.proposal_constituents
+        ],
+    }
+    path = save_basket(data)
+    st.cache_data.clear()
+    st.session_state.proposal_constituents = []
+    st.session_state.search_results = None
+    st.session_state.search_quotes = {}
+    st.success(
+        f"Saved `{path.name}` as Proposed. Open it in Basket Detail for review, "
+        "then click Approve and activate."
+    )
+if not name:
+    st.caption("Submit is enabled once the basket has a name and at least one constituent.")

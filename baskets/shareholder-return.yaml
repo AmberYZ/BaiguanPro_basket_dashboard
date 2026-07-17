@@ -1,0 +1,45 @@
+id: shareholder-return
+name: Shareholder Return Compounders
+status: active # proposed | active | archived
+author: Baiguan Team
+created: 2026-04-01
+inception: 2026-04-01 # index base date (base = 100)
+tags: [dividends, buybacks, SOE, large-cap]
+thesis: >
+  Chinese companies - particularly SOEs and large-caps - have meaningfully
+  accelerated buybacks and dividends over the past 18 months. This is a
+  structural shift, not a one-off. In an environment where earnings growth can
+  be uncertain, capital returns provide a floor. Popular dividend indices are
+  heavily tilted toward banks and energy; we build a more balanced list where
+  the yield is real, the balance sheet supports continuation, and the stock
+  isn't already priced for it.
+benchmarks: [CSI300, HSI, SPX]
+newsletters:
+  - title: Introducing Baiguan Pro - Our View on Chinese Assets
+    url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
+    date: 2026-04-01
+constituents:
+  - ticker: 600900.SH
+    name: 长江电力
+    weight: null # null = equal weight
+    note: Hydropower cash machine, stable payout, non-bank yield anchor
+  - ticker: 601088.SH
+    name: 中国神华
+    weight: null
+    note: Coal + power integration, high dividend with strong balance sheet
+  - ticker: 600941.SH
+    name: 中国移动
+    weight: null
+    note: Telecom cash flows, rising payout ratio, buyback support
+  - ticker: 000333.SZ
+    name: 美的集团
+    weight: null
+    note: Consumer durables leader, consistent buybacks + dividends
+  - ticker: 000895.SZ
+    name: 双汇发展
+    weight: null
+    note: Staples with high payout ratio, defensive yield
+  - ticker: 601006.SH
+    name: 大秦铁路
+    weight: null
+    note: Freight rail utility-like economics, steady dividend

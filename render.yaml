@@ -1,0 +1,33 @@
+# Render Blueprint for Baiguan Pro Index.
+# One always-on web service with a persistent disk. The daily market-data
+# refresh runs inside this same process (see src/scheduler.py) because Render
+# cron jobs cannot share a persistent disk with a web service.
+services:
+  - type: web
+    name: baiguan-pro-index
+    runtime: python
+    plan: starter          # needed for a persistent disk + always-on (no spin-down)
+    region: singapore      # closest Render region to CN/HK data + users
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    disk:
+      name: baiguan-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+      # Persist the price/fundamentals cache and basket YAMLs on the mounted disk
+      # so nothing is lost on restart/redeploy and everyone shares one dataset.
+      - key: DATA_DIR
+        value: /var/data/data
+      - key: BASKETS_DIR
+        value: /var/data/baskets
+      # Set these in the Render dashboard (marked secret / not stored in git):
+      - key: APP_PASSWORD      # team-wide password gate on the URL
+        sync: false
+      - key: EODHD_API_KEY     # HK prices + fundamentals (Fwd PE / PEG / EV-EBITDA)
+        sync: false
+      - key: TUSHARE_TOKEN     # A-share prices (optional; akshare is the fallback)
+        sync: false
