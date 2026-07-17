@@ -1,0 +1,27 @@
+id: service-consumption-upgrade
+name: 高端服务业 Service consumption upgrade
+status: proposed
+author: Amber
+created: '2026-07-17'
+inception: '2026-07-17'
+tags:
+- service-consumption
+- consumption
+- new-consumer
+thesis: ''
+benchmarks:
+- CSI300
+- SPX
+- NDX
+newsletters: []
+watchpoints: []
+team_charts: []
+constituents:
+- ticker: 02508.HK
+  name: SAINT BELLA Inc
+  weight: 1.0
+  note: ''
+- ticker: 02869.HK
+  name: 绿城服务
+  weight: 1.0
+  note: ''
