@@ -327,6 +327,7 @@ def fetch_benchmark_series(name: str) -> pd.Series:
 
 
 def _price_path(key: str) -> Path:
+    key = "" if key is None else str(key).strip()
     return PRICES_DIR / f"{key.replace('.', '_').replace('^', '')}.parquet"
 
 
@@ -357,6 +358,16 @@ def update_prices(tickers: list[str], benchmarks: list[str],
 
 
 def load_price(key: str) -> pd.Series | None:
+    if key is None:
+        return None
+    try:
+        if pd.isna(key):
+            return None
+    except Exception:  # noqa: BLE001
+        pass
+    key = str(key).strip()
+    if not key or key.lower() in {"nan", "none", "null"}:
+        return None
     path = _price_path(key)
     if not path.exists():
         return None

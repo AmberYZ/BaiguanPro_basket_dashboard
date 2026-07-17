@@ -322,22 +322,25 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
         )
         if st.button("Save basket edits", type="primary"):
             records = edited.to_dict("records") if isinstance(edited, pd.DataFrame) else edited
-            for row in records:
-                if row.get("weight") is None or (isinstance(row.get("weight"), float)
-                                                 and pd.isna(row["weight"])):
-                    row["weight"] = 1.0
-            update_basket_fields(
-                b.id,
-                {
-                    "name": edit_name,
-                    "thesis": edit_thesis,
-                    "inception": edit_inception,
-                    "constituents": records,
-                },
-            )
-            st.cache_data.clear()
-            flash_success("Basket definition updated.")
-            st.rerun()
+            # Drop empty rows left behind when constituents are deleted in the table.
+            from src.baskets import _clean_constituents
+
+            records = _clean_constituents(records)
+            if not records:
+                st.error("A basket needs at least one constituent.")
+            else:
+                update_basket_fields(
+                    b.id,
+                    {
+                        "name": edit_name,
+                        "thesis": edit_thesis,
+                        "inception": edit_inception,
+                        "constituents": records,
+                    },
+                )
+                st.cache_data.clear()
+                flash_success("Basket definition updated.")
+                st.rerun()
 
     confirm = st.text_input("To delete, type the basket ID", placeholder=b.id)
     if st.button("Delete basket", type="secondary", disabled=confirm != b.id):

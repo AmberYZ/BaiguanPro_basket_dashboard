@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import pandas as pd
 import yaml
 
 # Baskets committed to the repo — used as the seed on a fresh persistent disk.
@@ -83,8 +84,11 @@ class Basket:
 def load_baskets(directory: Path = BASKETS_DIR) -> list[Basket]:
     baskets = []
     for path in sorted(directory.glob("*.yaml")):
-        raw = yaml.safe_load(path.read_text())
-        raw["constituents"] = [Constituent(**c) for c in raw.get("constituents", [])]
+        raw = yaml.safe_load(path.read_text()) or {}
+        # Drop blank rows left over from data_editor deletes (ticker: null / .nan).
+        raw["constituents"] = [
+            Constituent(**c) for c in _clean_constituents(raw.get("constituents"))
+        ]
         known = {f for f in Basket.__dataclass_fields__}
         baskets.append(Basket(**{k: v for k, v in raw.items() if k in known}))
     order = {"active": 0, "proposed": 1, "archived": 2}
@@ -92,9 +96,45 @@ def load_baskets(directory: Path = BASKETS_DIR) -> list[Basket]:
     return baskets
 
 
+def _clean_constituents(raw: list[dict] | None) -> list[dict]:
+    """Drop blank / NaN rows that Streamlit's data_editor leaves after deletes."""
+    cleaned: list[dict] = []
+    seen: set[str] = set()
+    for row in raw or []:
+        if not isinstance(row, dict):
+            continue
+        ticker = row.get("ticker")
+        if ticker is None or (isinstance(ticker, float) and pd.isna(ticker)):
+            continue
+        ticker = str(ticker).strip()
+        if not ticker or ticker.lower() in {"nan", "none", "null"}:
+            continue
+        if ticker in seen:
+            continue
+        seen.add(ticker)
+        weight = row.get("weight", 1.0)
+        if weight is None or (isinstance(weight, float) and pd.isna(weight)):
+            weight = 1.0
+        name = row.get("name")
+        note = row.get("note", "")
+        if name is None or (isinstance(name, float) and pd.isna(name)):
+            name = ticker
+        if note is None or (isinstance(note, float) and pd.isna(note)):
+            note = ""
+        cleaned.append({
+            "ticker": ticker,
+            "name": str(name).strip() or ticker,
+            "weight": float(weight),
+            "note": str(note),
+        })
+    return cleaned
+
+
 def save_basket(data: dict, directory: Path = BASKETS_DIR, *,
                 sync: bool = True, refresh_data: bool = False) -> Path:
     """Write a basket YAML locally and (when configured) commit it to GitHub."""
+    if "constituents" in data:
+        data = {**data, "constituents": _clean_constituents(data.get("constituents"))}
     slug = re.sub(r"[^a-z0-9]+", "-", data["id"].lower()).strip("-")
     path = directory / f"{slug}.yaml"
     path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
