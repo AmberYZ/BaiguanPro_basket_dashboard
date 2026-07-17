@@ -4,32 +4,41 @@ status: proposed
 author: Baiguan Team
 created: 2026-04-01
 inception: 2026-04-01
-tags: [consumption, IP, experiential, HK, new-consumer]
-thesis: >
-  Chinese consumers are not spending less - they are spending differently.
-  Emotional value, IP-driven merchandise and experiences are taking share
-  from traditional goods. The purest expressions (Pop Mart, Laopu Gold) list
-  in HK; we mix HK leaders with A-share experiential proxies. HK pricing is
-  experimental in this prototype.
-benchmarks: [CSI300, HSI]
+tags:
+- consumption
+- IP
+- experiential
+- new-consumer
+- service-consumption
+thesis: 'Chinese consumers are not spending less - they are spending differently.
+  Emotional value, IP-driven merchandise and experiences are taking share from traditional
+  goods. The purest expressions (Pop Mart, Laopu Gold) list in HK; we mix HK leaders
+  with A-share experiential proxies. HK pricing is experimental in this prototype.
+
+  '
+benchmarks:
+- CSI300
+- HSI
 newsletters:
-  - title: Introducing Baiguan Pro - Our View on Chinese Assets
-    url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
-    date: 2026-04-01
+- title: Related piece
+  url: nan
+  date: ''
+watchpoints: []
+team_charts: []
 constituents:
-  - ticker: 09992.HK
-    name: 泡泡玛特 Pop Mart
-    weight: null
-    note: IP platform, the flagship of emotional-value consumption
-  - ticker: 06181.HK
-    name: 老铺黄金 Laopu Gold
-    weight: null
-    note: Heritage gold jewelry, luxury-like brand economics
-  - ticker: 601888.SH
-    name: 中国中免
-    weight: null
-    note: Travel retail, experiential spending recovery
-  - ticker: 300144.SZ
-    name: 宋城演艺
-    weight: null
-    note: Live entertainment / cultural tourism operator
+- ticker: 09992.HK
+  name: 泡泡玛特 Pop Mart
+  weight: 1.0
+  note: IP platform, the flagship of emotional-value consumption
+- ticker: 06181.HK
+  name: 老铺黄金 Laopu Gold
+  weight: 1.0
+  note: Heritage gold jewelry, luxury-like brand economics
+- ticker: 601888.SH
+  name: 中国中免
+  weight: 1.0
+  note: Travel retail, experiential spending recovery
+- ticker: 300144.SZ
+  name: 宋城演艺
+  weight: 1.0
+  note: Live entertainment / cultural tourism operator
