@@ -875,11 +875,15 @@ def search_tickers(query: str, limit: int = 12) -> list[dict]:
     return merged[:limit]
 
 
-def quote_snapshot(ticker: str) -> dict | None:
+def quote_snapshot(ticker: str, *, prefer_live: bool = True) -> dict | None:
     """Latest close for confirming a search result.
 
-    Prefers the local price cache; falls back to a single EODHD EOD pull.
+    For search UI (prefer_live=True) hit EODHD first so brand-new tickers show
+    the true latest close, not a month-old row. Falls back to the local cache.
     """
+    live = _quote_from_eodhd(ticker) if (prefer_live and EODHD_API_KEY) else None
+    if live is not None:
+        return live
     cached = load_price(ticker)
     if cached is not None and not cached.empty:
         last = cached.iloc[-1]
@@ -890,30 +894,42 @@ def quote_snapshot(ticker: str) -> dict | None:
             "chg_1d": float(last / prev - 1) if prev is not None else None,
             "source": "cache",
         }
-    if not EODHD_API_KEY:
-        return None
+    if not prefer_live and EODHD_API_KEY:
+        return _quote_from_eodhd(ticker)
+    return None
+
+
+def _quote_from_eodhd(ticker: str) -> dict | None:
     try:
         symbol = _eodhd_symbol(ticker)
+        # order=d → newest first. Must use rows[0], not rows[-1].
+        from_date = (datetime.now().date() - pd.Timedelta(days=14)).isoformat()
         resp = requests.get(
             f"https://eodhd.com/api/eod/{symbol}",
             params={"api_token": EODHD_API_KEY, "fmt": "json", "order": "d",
-                    "from": (datetime.now().date().replace(day=1)).isoformat()},
+                    "from": from_date},
             timeout=15,
         )
         resp.raise_for_status()
         rows = resp.json()
         if not rows:
             return None
-        last = rows[-1]
-        prev = rows[-2] if len(rows) > 1 else None
-        close = _safe_float(last.get("close"))
-        if close is None:
+        last = rows[0]
+        prev = rows[1] if len(rows) > 1 else None
+        close = _safe_float(last.get("adjusted_close")
+                            if last.get("adjusted_close") not in (None, "")
+                            else last.get("close"))
+        if close is None or close is pd.NA:
             return None
         chg = None
-        if prev is not None and _safe_float(prev.get("close")):
-            chg = close / float(prev["close"]) - 1
+        if prev is not None:
+            prev_close = _safe_float(prev.get("adjusted_close")
+                                     if prev.get("adjusted_close") not in (None, "")
+                                     else prev.get("close"))
+            if prev_close is not None and prev_close is not pd.NA and float(prev_close):
+                chg = float(close) / float(prev_close) - 1
         return {
-            "price": close,
+            "price": float(close),
             "asof": str(last.get("date", ""))[:10],
             "chg_1d": chg,
             "source": "eodhd",
