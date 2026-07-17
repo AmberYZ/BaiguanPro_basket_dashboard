@@ -16,12 +16,10 @@ thesis: "Chinese consumers are not spending less - they are spending differently
 benchmarks:
 - CSI300
 - HSI
-newsletters:
-- title: Related piece
-  url: nan
-  date: ''
+newsletters: []
 watchpoints: []
-team_charts: []
+team_charts:
+- basket_valuation_map
 constituents:
 - ticker: 09992.HK
   name: 泡泡玛特 Pop Mart
