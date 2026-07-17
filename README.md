@@ -3,73 +3,80 @@
 Internal dashboard for tracking Baiguan Pro investment baskets — thesis, constituents,
 performance vs benchmarks, valuations, and the team's custom charts, all in one place.
 
-## Quick start
+**Team members only need a browser.** Propose baskets, approve them, edit constituents,
+and refresh data from the web UI. No YAML or local install required for daily use.
+
+## Share with the team (free path)
+
+Recommended for 3–4 internal users: **Streamlit Community Cloud + GitHub**.
+
+| Piece | Who owns it | What it does |
+|---|---|---|
+| Streamlit Cloud app | You deploy once | Shared URL + password gate |
+| GitHub repo | Source of truth | `baskets/`, `custom_charts/`, and `data/` cache |
+| GitHub Actions | Runs every Beijing midnight | Pulls market data, commits `data/` |
+| `GITHUB_TOKEN` in Streamlit secrets | Web edits | Saves basket/chart changes back to GitHub |
+
+### One-time setup (you)
+
+1. Repo is already on GitHub: https://github.com/AmberYZ/BaiguanPro_basket_dashboard
+2. **GitHub → Settings → Secrets and variables → Actions**  
+   Add repository secrets:
+   - `EODHD_API_KEY`
+   - `TUSHARE_TOKEN`
+3. **Actions** tab → *Update market data* → **Run workflow** once (first fill of `data/`).
+4. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**  
+   - Repository: `AmberYZ/BaiguanPro_basket_dashboard`  
+   - Branch: `main`  
+   - Main file: `app.py`
+5. In the app → **Settings → Secrets**, paste (see `.streamlit/secrets.toml.example`):
+
+```toml
+APP_PASSWORD = "your-team-password"
+EODHD_API_KEY = "..."
+TUSHARE_TOKEN = "..."
+GITHUB_TOKEN = "ghp_..."   # PAT with repo write + Actions write
+GITHUB_REPO = "AmberYZ/BaiguanPro_basket_dashboard"
+GITHUB_BRANCH = "main"
+```
+
+6. Send teammates the Streamlit URL + the team password.
+
+### How teammates use it (browser only)
+
+1. Open the URL → enter the team password.
+2. **Propose a Basket** — search stocks, click ＋ Add, submit.
+3. **Basket Detail** — review, **Approve and activate**, edit thesis / constituents / tags.
+4. New names get market data from the background refresh (or click **Data & Update → Update all data now**).
+5. Overnight, GitHub Actions refreshes all prices/valuations at **Beijing 00:00**.
+
+Password: set `APP_PASSWORD` in Streamlit secrets. Opening the URL shows a password box before the dashboard.
+
+## Local quick start (developers)
 
 ```bash
 python3.13 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-# optional: prefer paid providers over free fallbacks
-export TUSHARE_TOKEN=...     # A-share prices via Tushare Pro
-export EODHD_API_KEY=...     # HK prices via EODHD
-export APP_PASSWORD=...      # optional internal shared-password gate
+export TUSHARE_TOKEN=...
+export EODHD_API_KEY=...
+export APP_PASSWORD=...      # optional
 
-.venv/bin/python update_data.py      # pull prices + fundamentals into data/
-.venv/bin/streamlit run app.py       # open the dashboard
+.venv/bin/python update_data.py
+.venv/bin/streamlit run app.py
 ```
 
-## How the team uses it
+Without `GITHUB_TOKEN`, local saves stay on your machine only (fine for solo work).
 
-1. **Propose** — use the *Propose a Basket* page (or write a YAML file by hand).
-   The basket lands in `baskets/` with status `proposed`.
-2. **Review together** — refine the constituent list and thesis, then edit the YAML:
-   set `status: active` and set `inception` to the go-live date. The index is
-   base-100 from that date, buy-and-hold with weights fixed at inception.
-3. **Track** — the *Overview* page shows all baskets vs benchmarks; *Basket Detail*
-   shows the thesis, linked newsletters, performance chart and per-name valuation
-   table (PE/PB/YTD etc.).
-4. **Update data** — click *Update all data now* on the Data & Update page, or run
-   `update_data.py` from cron / GitHub Actions.
-5. **Share your charts** — use the *Team Charts* page to create/update chart code
-   from a template. It saves a small Python file in `custom_charts/` and renders
-   immediately in the shared gallery. Chart code can import `src.data` helpers and
-   use the centralized `EODHD_API_KEY` / `TUSHARE_TOKEN` environment variables.
+## How the shared data stays consistent
 
-## Tiny-team deployment
+- **Market data** lives in `data/*.parquet` and is **committed to GitHub** by Actions every night. Streamlit Cloud redeploys from that commit, so everyone sees the same numbers — not your browser cache.
+- **Basket / chart edits** from the web UI are written to GitHub via the API when `GITHUB_TOKEN` is set. After the push, Streamlit Cloud picks up the new files.
+- Adding a constituent updates the basket immediately; prices for brand-new tickers appear after the data workflow finishes (manual Update or the nightly run).
 
-For 3-4 internal users, the simplest version is:
+## Paid alternative (optional)
 
-- Deploy the Streamlit app to Render, Fly, Streamlit Cloud, or another long-running
-  Python host. Vercel is excellent for a future Next.js version, but it is not the
-  natural fit for a Streamlit server.
-- Set `APP_PASSWORD`, `EODHD_API_KEY`, and `TUSHARE_TOKEN` as deployment
-  environment variables. Do not commit real keys.
-- Keep `baskets/` in git. Proposed baskets are YAML files, so changes are reviewable.
-
-When this becomes subscriber-facing, move toward a Next.js/Vercel frontend with
-Clerk/Auth0 and scheduled Python data jobs behind APIs.
-
-## Basket YAML schema
-
-```yaml
-id: my-basket            # unique slug
-name: My Basket
-status: proposed         # proposed | active | archived
-author: who proposed it
-created: 2026-07-17
-inception: 2026-07-17    # index base date (base = 100)
-tags: [theme, sector]
-thesis: >
-  Why this basket exists, the catalyst, and what would make us wrong.
-benchmarks: [CSI300, SPX, NDX]   # universal dashboard benchmarks
-newsletters:
-  - {title: ..., url: ..., date: ...}
-constituents:
-  - ticker: 600900.SH    # .SH / .SZ / .BJ / .HK
-    name: 长江电力
-    weight: null         # null = equal weight; or 0.15 etc.
-    note: one-line rationale
-```
+`render.yaml` remains available if you later want a always-on host with a persistent disk (~$7/mo). For that path set `ENABLE_INPROCESS_SCHEDULER=1`. The free Streamlit Cloud path above is the default.
 
 ## Data sources & fallbacks
 
@@ -83,16 +90,9 @@ constituents:
 | Forward PE / PEG / analyst / EV/EBITDA | EODHD fundamentals | blank if unavailable |
 | RSI | local calculation from cached price history | blank if insufficient history |
 
-Cached under `data/` as parquet (gitignored). Basket definitions in `baskets/` are
-the source of truth and should be committed.
-
 ## Known limitations (prototype)
 
-- Basket indices are **price return** only — dividends not yet reinvested, which
-  understates the shareholder-return basket. Total-return via Tushare dividend data
-  is the top roadmap item.
-- Weights are fixed at inception (buy-and-hold). No rebalancing or constituent
-  change history yet; changing a YAML changes history retroactively.
-- HK valuation depth is still thinner than A-shares for dividend-yield style fields.
-- `APP_PASSWORD` is intentionally simple; subscriber-facing auth should use a real
-  auth provider.
+- Basket indices are **price return** only — dividends not yet reinvested.
+- Weights are fixed at inception (buy-and-hold). Changing constituents changes history retroactively.
+- `APP_PASSWORD` is a simple shared password, not per-user auth.
+- After a GitHub push, Streamlit Cloud may take a few minutes to redeploy.

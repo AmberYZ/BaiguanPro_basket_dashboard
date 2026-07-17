@@ -173,14 +173,20 @@ if st.button("Create proposal", type="primary", disabled=not (name and draft)):
             for c in st.session_state.proposal_constituents
         ],
     }
-    path = save_basket(data)
+    try:
+        save_basket(data, refresh_data=True)
+    except RuntimeError as exc:
+        st.error(str(exc))
+        st.stop()
     st.cache_data.clear()
     st.session_state.proposal_constituents = []
     st.session_state.search_results = None
     st.session_state.search_quotes = {}
     st.success(
-        f"Saved `{path.name}` as Proposed. Open it in Basket Detail for review, "
-        "then click Approve and activate."
+        f"Proposal **{name}** saved. Open it in Basket Detail to review, "
+        "then click Approve and activate. "
+        "Market data for new names refreshes in the background "
+        "(usually a few minutes on the shared cloud app)."
     )
 if not name:
     st.caption("Submit is enabled once the basket has a name and at least one constituent.")

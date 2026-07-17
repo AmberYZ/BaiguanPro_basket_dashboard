@@ -1,13 +1,15 @@
-# Render Blueprint for Baiguan Pro Index.
-# One always-on web service with a persistent disk. The daily market-data
-# refresh runs inside this same process (see src/scheduler.py) because Render
-# cron jobs cannot share a persistent disk with a web service.
+# OPTIONAL paid alternative (Render + persistent disk).
+# Default / recommended free path: Streamlit Community Cloud + GitHub Actions
+# (see README.md). Only use this Blueprint if you want an always-on host with a
+# mounted disk (~$7/mo Starter plan). Set ENABLE_INPROCESS_SCHEDULER=1 so the
+# Beijing-midnight refresh runs inside the web process (Render cron jobs cannot
+# share a disk with a web service).
 services:
   - type: web
     name: baiguan-pro-index
     runtime: python
-    plan: starter          # needed for a persistent disk + always-on (no spin-down)
-    region: singapore      # closest Render region to CN/HK data + users
+    plan: starter
+    region: singapore
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
@@ -18,16 +20,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.1"
-      # Persist the price/fundamentals cache and basket YAMLs on the mounted disk
-      # so nothing is lost on restart/redeploy and everyone shares one dataset.
       - key: DATA_DIR
         value: /var/data/data
       - key: BASKETS_DIR
         value: /var/data/baskets
-      # Set these in the Render dashboard (marked secret / not stored in git):
-      - key: APP_PASSWORD      # team-wide password gate on the URL
+      - key: ENABLE_INPROCESS_SCHEDULER
+        value: "1"
+      - key: APP_PASSWORD
         sync: false
-      - key: EODHD_API_KEY     # HK prices + fundamentals (Fwd PE / PEG / EV-EBITDA)
+      - key: EODHD_API_KEY
         sync: false
-      - key: TUSHARE_TOKEN     # A-share prices (optional; akshare is the fallback)
+      - key: TUSHARE_TOKEN
         sync: false

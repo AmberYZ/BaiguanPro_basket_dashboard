@@ -1,0 +1,54 @@
+# Daily market-data refresh for Streamlit Community Cloud.
+# Writes parquet caches under data/ and commits them so every teammate
+# (and every Streamlit Cloud reboot) sees the same numbers.
+#
+# Schedule: 16:00 UTC = 00:00 Asia/Shanghai (Beijing midnight).
+# Also triggerable from the app's Data & Update page (workflow_dispatch).
+
+name: Update market data
+
+on:
+  schedule:
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-market-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Refresh prices + fundamentals
+        env:
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+          TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
+        run: python update_data.py
+
+      - name: Commit and push data cache
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p data/prices
+          git add -A data/
+          if git diff --staged --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
+            git push
+          fi

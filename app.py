@@ -9,24 +9,57 @@ from pathlib import Path
 
 import streamlit as st
 
-from src.baskets import seed_baskets
-from src.scheduler import start_daily_update
-from src.ui import apply_theme
-
 st.set_page_config(
     page_title="Baiguan Pro Index",
     page_icon="BP",
     layout="wide",
 )
+
+
+def _load_secrets_into_env() -> None:
+    """Copy Streamlit Cloud secrets into os.environ for the rest of the app.
+
+    Locally you can keep using a `.env` file (loaded by ``src.data``). On
+    Streamlit Community Cloud, put the same keys in App settings → Secrets.
+    """
+    try:
+        secrets = st.secrets
+    except Exception:  # noqa: BLE001 — no secrets.toml / not configured
+        return
+    for key in secrets:
+        try:
+            value = secrets[key]
+        except Exception:  # noqa: BLE001
+            continue
+        if isinstance(value, (str, int, float, bool)):
+            os.environ.setdefault(str(key), str(value))
+
+
+_load_secrets_into_env()
+
+from src.baskets import seed_baskets  # noqa: E402
+from src.scheduler import start_daily_update  # noqa: E402
+from src.ui import apply_theme  # noqa: E402
+
 apply_theme()
 
 
 @st.cache_resource
 def _bootstrap() -> bool:
-    """Run once per server process: seed baskets on a fresh disk and start the
-    daily data refresh at 16:00 UTC (00:00 Asia/Shanghai)."""
+    """One-time process setup.
+
+    Free Streamlit Cloud path: market data is refreshed by GitHub Actions and
+    committed to the repo — do **not** start the in-process daily scheduler
+    (the Cloud filesystem is ephemeral anyway).
+
+    Paid / self-hosted path with a persistent disk: set
+    ``ENABLE_INPROCESS_SCHEDULER=1`` to refresh on Beijing midnight inside
+    this process.
+    """
     seed_baskets()
-    start_daily_update(hour_utc=16)
+    flag = os.environ.get("ENABLE_INPROCESS_SCHEDULER", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        start_daily_update(hour_utc=16)
     return True
 
 
@@ -40,8 +73,9 @@ if st.query_params.get("share"):
 def password_gate() -> None:
     """Tiny internal gate for early team prototypes.
 
-    Set APP_PASSWORD in the deployment environment to enable it. This is not a
-    replacement for proper user auth when the dashboard becomes subscriber-facing.
+    Set APP_PASSWORD in Streamlit secrets (or the environment) to enable it.
+    This is not a replacement for proper user auth when the dashboard becomes
+    subscriber-facing.
     """
     password = os.environ.get("APP_PASSWORD")
     if not password or st.session_state.get("authenticated"):

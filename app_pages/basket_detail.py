@@ -225,15 +225,15 @@ if st.button("Save watchpoints / chart links", type="primary"):
          "team_charts": [chart_options[t] for t in selected_titles]},
     )
     st.cache_data.clear()
-    st.success("Saved to the basket YAML.")
+    st.success("Saved.")
     st.rerun()
 
 st.divider()
 with st.expander("Internal — edit tags, newsletters, definition", expanded=False):
     internal_badge("Approve proposals, edit tags / newsletters / definition, or delete.")
     st.caption(
-        "Simple workflow: any authenticated internal teammate can activate a proposal. "
-        "Tags and newsletters can be updated anytime for future posts."
+        "Any teammate with the password can activate a proposal. "
+        "Tags and newsletters can be updated anytime."
     )
     if b.status == "proposed":
         if st.button("Approve and activate basket", type="primary"):

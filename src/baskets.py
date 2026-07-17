@@ -92,10 +92,22 @@ def load_baskets(directory: Path = BASKETS_DIR) -> list[Basket]:
     return baskets
 
 
-def save_basket(data: dict, directory: Path = BASKETS_DIR) -> Path:
+def save_basket(data: dict, directory: Path = BASKETS_DIR, *,
+                sync: bool = True, refresh_data: bool = False) -> Path:
+    """Write a basket YAML locally and (when configured) commit it to GitHub."""
     slug = re.sub(r"[^a-z0-9]+", "-", data["id"].lower()).strip("-")
     path = directory / f"{slug}.yaml"
-    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False))
+    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
+                    encoding="utf-8")
+    if sync:
+        from src.github_sync import persist_file, trigger_data_update
+
+        err = persist_file(path, f"chore: save basket {slug}")
+        if err:
+            raise RuntimeError(f"Saved locally but GitHub sync failed: {err}")
+        if refresh_data:
+            # Fire-and-forget: Actions will pull prices for any new tickers.
+            trigger_data_update()
     return path
 
 
@@ -132,7 +144,10 @@ def update_basket_fields(basket_id: str, fields: dict,
         raise ValueError(f"Unknown basket id: {basket_id}")
     data = basket_to_dict(baskets[basket_id])
     data.update(fields)
-    return save_basket(data, directory)
+    return save_basket(
+        data, directory,
+        refresh_data=("constituents" in fields),
+    )
 
 
 def delete_basket(basket_id: str, directory: Path = BASKETS_DIR) -> None:
@@ -140,3 +155,8 @@ def delete_basket(basket_id: str, directory: Path = BASKETS_DIR) -> None:
     if not path.exists():
         raise ValueError(f"Unknown basket id: {basket_id}")
     path.unlink()
+    from src.github_sync import delete_remote_file
+
+    err = delete_remote_file(path, f"chore: delete basket {basket_id}")
+    if err:
+        raise RuntimeError(f"Deleted locally but GitHub sync failed: {err}")
