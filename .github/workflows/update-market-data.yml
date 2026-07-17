@@ -25,6 +25,9 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -44,23 +47,35 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config pull.rebase true
           mkdir -p data/prices
+
+          # Start from the latest main — app edits often land while this job runs.
+          git fetch origin main
+          git rebase origin/main
+
           git add -A data/
           if git diff --staged --quiet; then
             echo "No data changes to commit."
             exit 0
           fi
           git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
-          # Web edits (basket saves) often land on main while this job runs.
-          # Rebase onto latest main and retry the push a few times.
-          for i in 1 2 3 4 5; do
-            if git pull --rebase origin main && git push origin HEAD:main; then
+
+          # Push with retries when another commit lands on main mid-run.
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "Rebase conflict on attempt $i"
+              git rebase --abort
+              sleep $((i * 2))
+              continue
+            fi
+            if git push origin HEAD:main; then
               echo "Pushed on attempt $i"
               exit 0
             fi
-            echo "Push conflict (attempt $i); retrying..."
-            sleep $((i * 3))
-            git rebase --abort 2>/dev/null || true
+            echo "Push rejected on attempt $i (remote moved); retrying..."
+            sleep $((i * 2))
           done
           echo "Failed to push data refresh after retries"
           exit 1
