@@ -4,36 +4,42 @@ status: active
 author: Baiguan Team
 created: 2026-04-01
 inception: 2026-04-01
-tags: [robotaxi, autonomous-driving, AI, hard-tech]
-thesis: >
-  Robotaxi commercialization in China is moving faster than most global
-  investors appreciate. Rather than betting on a single operator, we express
-  the theme through the A-share supply chain: domain controllers, smart
-  cockpit / OS, chassis-by-wire, sensors and tier-1 integration - the
-  picks-and-shovels of autonomy.
-benchmarks: [CSI300, NDX]
+tags:
+- robotaxi
+- autonomous-driving
+thesis: 'Robotaxi commercialization in China is moving faster than most global investors
+  appreciate. Rather than betting on a single operator, we express the theme through
+  the A-share supply chain: domain controllers, smart cockpit / OS, chassis-by-wire,
+  sensors and tier-1 integration - the picks-and-shovels of autonomy.
+
+  '
+benchmarks:
+- CSI300
+- NDX
 newsletters:
-  - title: Introducing Baiguan Pro - Our View on Chinese Assets
-    url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
-    date: 2026-04-01
+- title: Related piece
+  url: https://www.baiguan.news/p/the-involution-of-autonomy-why-chinas
+  date: '2026-04-14'
+watchpoints: []
+team_charts: []
 constituents:
-  - ticker: 002920.SZ
-    name: 德赛西威
-    weight: null
-    note: Leading domain controller supplier, NVIDIA ecosystem
-  - ticker: 300496.SZ
-    name: 中科创达
-    weight: null
-    note: Smart cockpit OS and autonomous driving software stack
-  - ticker: 601689.SH
-    name: 拓普集团
-    weight: null
-    note: Tier-1 platform supplier, robotics actuator optionality
-  - ticker: 002906.SZ
-    name: 华阳集团
-    weight: null
-    note: Cockpit electronics + HUD, ADAS penetration play
-  - ticker: 603596.SH
-    name: 伯特利
-    weight: null
-    note: Brake-by-wire leader, key enabler of L3+ autonomy
+- ticker: 002920.SZ
+  name: 德赛西威
+  weight: 1.0
+  note: Leading domain controller supplier, NVIDIA ecosystem
+- ticker: 300496.SZ
+  name: 中科创达
+  weight: 1.0
+  note: Smart cockpit OS and autonomous driving software stack
+- ticker: 601689.SH
+  name: 拓普集团
+  weight: 1.0
+  note: Tier-1 platform supplier, robotics actuator optionality
+- ticker: 002906.SZ
+  name: 华阳集团
+  weight: 1.0
+  note: Cockpit electronics + HUD, ADAS penetration play
+- ticker: 603596.SH
+  name: 伯特利
+  weight: 1.0
+  note: Brake-by-wire leader, key enabler of L3+ autonomy
