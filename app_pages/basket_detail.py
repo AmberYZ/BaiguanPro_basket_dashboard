@@ -9,9 +9,9 @@ from src.auth import flash_success
 from src.baskets import delete_basket, update_basket_fields
 from src.chart_registry import (chart_description, chart_title, load_chart_modules,
                                 render_chart)
-from src.data import fundamentals_for
+from src.data import fundamentals_for, merge_basket_news, quote_snapshot, search_tickers
 from src.ui import (BLUE, internal_badge, internal_heading, market_table,
-                    metric_grid, plotly_layout, share_button, tag_filter)
+                    metric_grid, news_feed, plotly_layout, share_button, tag_filter)
 
 baskets = {b.id: b for b in get_baskets()}
 if not baskets:
@@ -143,7 +143,7 @@ for c in b.constituents:
         "P/E": None,
         "P/B": None,
         "EV/EBITDA": None,
-        "RSI": None,
+        "RSI (14)": None,
     }
     if fund is not None and c.ticker in fund.index:
         f = fund.loc[c.ticker]
@@ -158,7 +158,7 @@ for c in b.constituents:
             "P/E": f["pe_ttm"],
             "P/B": f["pb"],
             "EV/EBITDA": f.get("ev_ebitda"),
-            "RSI": f.get("rsi_14"),
+            "RSI (14)": f.get("rsi_14"),
         })
     rows.append(row)
 
@@ -168,10 +168,35 @@ market_table(
     pct_cols=["Weight", "1M", "3M", "YTD", "EPS Gr. (1Y)"],
     formats={
         "Price": "{:.2f}", "Fwd PE": "{:.1f}", "PEG": "{:.2f}",
-        "P/E": "{:.1f}", "P/B": "{:.2f}", "EV/EBITDA": "{:.1f}", "RSI": "{:.1f}",
+        "P/E": "{:.1f}", "P/B": "{:.2f}", "EV/EBITDA": "{:.1f}", "RSI (14)": "{:.1f}",
+    },
+    col_help={
+        "RSI (14)": "14-period Wilder RSI on adjusted close (computed locally from cached prices).",
     },
 )
 st.caption("EPS Gr. (1Y) = EODHD consensus forward EPS growth (+1y). No multi-year CAGR field.")
+
+st.markdown("#### Constituent news")
+news_count_key = f"news_count_{b.id}"
+st.session_state.setdefault(news_count_key, 8)
+st.caption(
+    "Headlines for basket tickers — EODHD where available, Eastmoney (akshare) as fallback for HK / A-shares."
+)
+if st.button("Load headlines", key=f"load_news_{b.id}"):
+    with st.spinner("Fetching news…"):
+        st.session_state[f"news_cache_{b.id}"] = merge_basket_news(tickers, limit_per_ticker=3)
+        st.session_state[news_count_key] = 8
+
+cached_news = st.session_state.get(f"news_cache_{b.id}")
+if cached_news is not None:
+    shown = st.session_state[news_count_key]
+    news_feed(cached_news, start=0, count=shown)
+    if shown < len(cached_news):
+        if st.button(f"Show more ({len(cached_news) - shown} left)", key=f"more_news_{b.id}"):
+            st.session_state[news_count_key] = min(shown + 8, len(cached_news))
+            st.rerun()
+else:
+    st.caption("Click **Load headlines** to fetch the latest stories (not loaded automatically).")
 
 chart_modules = load_chart_modules()
 chart_options = {chart_title(mod): slug for slug, mod in chart_modules}
@@ -234,7 +259,7 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
     internal_badge("Approve proposals, edit tags / newsletters / definition, or delete.")
     st.caption(
         "Any teammate with the password can activate a proposal. "
-        "Tags and newsletters can be updated anytime."
+        "Tags, newsletters, and basket definition are editable below."
     )
     if b.status == "proposed":
         if st.button("Approve and activate basket", type="primary"):
@@ -291,12 +316,16 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
         st.rerun()
 
     st.divider()
-    edit_mode = st.toggle("Edit basket definition")
-    if edit_mode:
-        edit_name = st.text_input("Name", value=b.name)
-        edit_thesis = st.text_area("Thesis", value=b.thesis, height=180)
-        edit_inception = st.text_input("Inception (YYYY-MM-DD)", value=b.inception)
-        editable = pd.DataFrame([
+    internal_heading("Basket definition")
+    edit_name = st.text_input("Name", value=b.name, key=f"edit_name_{b.id}")
+    edit_thesis = st.text_area("Thesis", value=b.thesis, height=180, key=f"edit_thesis_{b.id}")
+    edit_inception = st.text_input(
+        "Inception (YYYY-MM-DD)", value=b.inception, key=f"edit_inception_{b.id}",
+    )
+
+    const_key = f"edit_const_{b.id}"
+    if st.session_state.get("edit_const_basket") != b.id:
+        st.session_state[const_key] = [
             {
                 "ticker": c.ticker,
                 "name": c.name,
@@ -304,43 +333,105 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                 "note": c.note,
             }
             for c in b.constituents
-        ])
-        edited = st.data_editor(
-            editable,
-            hide_index=True,
-            width="stretch",
-            num_rows="dynamic",
-            column_config={
-                "ticker": st.column_config.TextColumn("Ticker"),
-                "name": st.column_config.TextColumn("Name"),
-                "weight": st.column_config.NumberColumn(
-                    "Weight", min_value=0.0, step=1.0,
-                    help="Equal-weight baskets use 1 for every name; values are normalized.",
-                ),
-                "note": st.column_config.TextColumn("Constituent rationale"),
-            },
-        )
-        if st.button("Save basket edits", type="primary"):
-            records = edited.to_dict("records") if isinstance(edited, pd.DataFrame) else edited
-            # Drop empty rows left behind when constituents are deleted in the table.
-            from src.baskets import _clean_constituents
+        ]
+        st.session_state["edit_const_basket"] = b.id
 
-            records = _clean_constituents(records)
-            if not records:
-                st.error("A basket needs at least one constituent.")
-            else:
-                update_basket_fields(
-                    b.id,
-                    {
-                        "name": edit_name,
-                        "thesis": edit_thesis,
-                        "inception": edit_inception,
-                        "constituents": records,
-                    },
-                )
-                st.cache_data.clear()
-                flash_success("Basket definition updated.")
-                st.rerun()
+    internal_heading("Add constituents")
+    st.caption("Search by ticker or company name — same sources as Propose a Basket.")
+    search_col, btn_col = st.columns([4, 1])
+    with search_col:
+        edit_query = st.text_input(
+            "Search tickers",
+            placeholder="e.g. Pop Mart, 09992, BYD, 002594",
+            key=f"edit_search_q_{b.id}",
+            label_visibility="collapsed",
+        )
+    with btn_col:
+        do_edit_search = st.button("Search", key=f"edit_search_btn_{b.id}", type="secondary",
+                                   width="stretch")
+
+    if do_edit_search and edit_query.strip():
+        with st.spinner("Searching…"):
+            results = search_tickers(edit_query)
+            quotes = {item["ticker"]: quote_snapshot(item["ticker"]) for item in results}
+            st.session_state[f"edit_search_results_{b.id}"] = results
+            st.session_state[f"edit_search_quotes_{b.id}"] = quotes
+    elif do_edit_search:
+        st.warning("Type a ticker or company name first.")
+
+    edit_results = st.session_state.get(f"edit_search_results_{b.id}")
+    edit_quotes = st.session_state.get(f"edit_search_quotes_{b.id}", {})
+    if edit_results is not None:
+        in_basket = {row["ticker"] for row in st.session_state[const_key]}
+        if not edit_results:
+            st.error(f'No match for "{edit_query}". Try another spelling or code.')
+        else:
+            for i, item in enumerate(edit_results):
+                q = edit_quotes.get(item["ticker"])
+                qtxt = "no price yet"
+                if q:
+                    chg = q.get("chg_1d")
+                    chg_txt = f"  {chg:+.1%}" if chg is not None else ""
+                    qtxt = f"close {q['price']:.2f}{chg_txt} · {q['asof']}"
+                cols = st.columns([1.3, 2.4, 2.2, 0.8])
+                cols[0].code(item["ticker"])
+                cols[1].write(item["name"])
+                cols[2].caption(qtxt)
+                if item["ticker"] in in_basket:
+                    cols[3].button("Added", key=f"edit_added_{b.id}_{i}", disabled=True)
+                elif cols[3].button("＋ Add", key=f"edit_add_{b.id}_{i}"):
+                    st.session_state[const_key].append({
+                        "ticker": item["ticker"],
+                        "name": item["name"],
+                        "weight": 1.0,
+                        "note": "",
+                    })
+                    st.toast(f"Added {item['name']} ({item['ticker']})")
+                    st.rerun()
+
+    edited = st.data_editor(
+        st.session_state[const_key],
+        hide_index=True,
+        width="stretch",
+        num_rows="dynamic",
+        key=f"const_editor_{b.id}",
+        column_config={
+            "ticker": st.column_config.TextColumn("Ticker", disabled=True),
+            "name": st.column_config.TextColumn("Name"),
+            "weight": st.column_config.NumberColumn(
+                "Weight", min_value=0.0, step=1.0,
+                help="Equal-weight baskets use 1 for every name; values are normalized.",
+            ),
+            "note": st.column_config.TextColumn("Constituent rationale"),
+        },
+    )
+    if isinstance(edited, pd.DataFrame):
+        st.session_state[const_key] = edited.to_dict("records")
+    else:
+        st.session_state[const_key] = edited
+
+    if st.button("Save basket definition", type="primary", key=f"save_def_{b.id}"):
+        records = st.session_state[const_key]
+        from src.baskets import _clean_constituents
+
+        records = _clean_constituents(records)
+        if not records:
+            st.error("A basket needs at least one constituent.")
+        else:
+            update_basket_fields(
+                b.id,
+                {
+                    "name": edit_name,
+                    "thesis": edit_thesis,
+                    "inception": edit_inception,
+                    "constituents": records,
+                },
+            )
+            st.cache_data.clear()
+            if const_key in st.session_state:
+                del st.session_state[const_key]
+            flash_success("Basket definition updated.")
+            st.rerun()
 
     confirm = st.text_input("To delete, type the basket ID", placeholder=b.id)
     if st.button("Delete basket", type="secondary", disabled=confirm != b.id):

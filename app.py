@@ -22,24 +22,20 @@ def _load_secrets_into_env() -> None:
     Locally you can keep using a `.env` file (loaded by ``src.data``). On
     Streamlit Community Cloud, put the same keys in App settings → Secrets.
 
-    Values overwrite existing env vars (setdefault would leave a stale empty
-    token in place). Surrounding quotes are stripped in case the secrets UI
-    double-quoted a value.
+    Missing secrets.toml must not crash local runs.
     """
     try:
-        secrets = st.secrets
+        # Materialize into a plain dict so a missing secrets.toml fails here
+        # (Streamlit raises StreamlitSecretNotFoundError on access/iteration).
+        items = {str(k): st.secrets[k] for k in st.secrets}
     except Exception:  # noqa: BLE001 — no secrets.toml / not configured
         return
-    for key in secrets:
-        try:
-            value = secrets[key]
-        except Exception:  # noqa: BLE001
-            continue
+    for key, value in items.items():
         if isinstance(value, (str, int, float, bool)):
             text = str(value).strip()
             if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
                 text = text[1:-1].strip()
-            os.environ[str(key)] = text
+            os.environ[key] = text
 
 
 _load_secrets_into_env()

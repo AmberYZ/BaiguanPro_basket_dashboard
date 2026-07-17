@@ -67,9 +67,6 @@ def basket_summary_rows() -> pd.DataFrame:
                 excess = excess_vs_benchmark(idx, bench)
         rows.append({
             "Basket": b.name,
-            "Status": STATUS_BADGE.get(b.status, b.status),
-            "Tags": ", ".join(b.tags),
-            "Names": len(b.constituents),
             "1W": stats.get("ret_1w"),
             "1M": stats.get("ret_1m"),
             "3M": stats.get("ret_3m"),
@@ -80,6 +77,9 @@ def basket_summary_rows() -> pd.DataFrame:
             "Max DD": stats.get("max_dd"),
             "Sharpe": stats.get("sharpe"),
             "Inception": b.inception,
+            "Status": STATUS_BADGE.get(b.status, b.status),
+            "Tags": ", ".join(b.tags),
+            "Tickers": len(b.constituents),
             "_id": b.id,
             "_tags": list(b.tags),
         })

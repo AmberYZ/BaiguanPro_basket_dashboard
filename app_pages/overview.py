@@ -180,7 +180,7 @@ st.caption("Click a basket name to open its detail page.")
 market_table(
     df.drop(columns=["_id", "_tags"]),
     pct_cols=pct_cols,
-    formats={"Sharpe": "{:.2f}", "Names": "{:.0f}"},
+    formats={"Sharpe": "{:.2f}", "Tickers": "{:.0f}"},
     link_map={"Basket": basket_links},
     col_help={
         "Excess vs CSI300": "Since inception: basket return minus CSI300 return, both rebased at the basket's inception date.",
@@ -342,14 +342,14 @@ for row in range(0, len(baskets), 2):
                             "EPS Gr. (1Y)": f.get("eps_growth"),
                             "EV/EBITDA": f.get("ev_ebitda"),
                             "PB": f["pb"],
-                            "RSI": f.get("rsi_14"),
+                            "RSI (14)": f.get("rsi_14"),
                         })
                     rows.append(item)
                 market_table(
                     pd.DataFrame(rows),
                     pct_cols=["1M", "3M", "YTD", "EPS Gr. (1Y)"],
                     formats={"PE": "{:.1f}", "Fwd PE": "{:.1f}", "PEG": "{:.2f}",
-                             "EV/EBITDA": "{:.1f}", "PB": "{:.2f}", "RSI": "{:.1f}"},
+                             "EV/EBITDA": "{:.1f}", "PB": "{:.2f}", "RSI (14)": "{:.1f}"},
                     max_rows=5,
                     compact=True,
                 )

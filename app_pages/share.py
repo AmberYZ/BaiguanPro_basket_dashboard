@@ -76,7 +76,7 @@ if view == "basket":
         row = {"Ticker": c.ticker, "Name": c.name, "Price": None, "1M": None,
                "3M": None, "YTD": None, "Fwd PE": None, "PEG": None,
                "EPS Gr. (1Y)": None, "P/E": None, "P/B": None, "EV/EBITDA": None,
-               "RSI": None}
+               "RSI (14)": None}
         if fund is not None and c.ticker in fund.index:
             f = fund.loc[c.ticker]
             row.update({
@@ -87,13 +87,13 @@ if view == "basket":
                 "Fwd PE": f.get("fwd_pe"), "PEG": f.get("peg"),
                 "EPS Gr. (1Y)": f.get("eps_growth"),
                 "P/E": f.get("pe_ttm"), "P/B": f.get("pb"),
-                "EV/EBITDA": f.get("ev_ebitda"), "RSI": f.get("rsi_14"),
+                "EV/EBITDA": f.get("ev_ebitda"), "RSI (14)": f.get("rsi_14"),
             })
         rows.append(row)
     market_table(pd.DataFrame(rows), pct_cols=["1M", "3M", "YTD", "EPS Gr. (1Y)"],
                  formats={"Price": "{:.2f}", "Fwd PE": "{:.1f}", "PEG": "{:.2f}",
                           "P/E": "{:.1f}", "P/B": "{:.2f}", "EV/EBITDA": "{:.1f}",
-                          "RSI": "{:.1f}"})
+                          "RSI (14)": "{:.1f}"})
     st.caption(market_asof(tickers))
 
     attached = [(slug, mod) for slug, mod in load_chart_modules()

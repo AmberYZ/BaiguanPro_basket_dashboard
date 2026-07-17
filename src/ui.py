@@ -158,6 +158,61 @@ def apply_theme() -> None:
         }
         .market-table tr:last-child td { border-bottom: 0; }
         .market-table tr:hover td { background: rgba(94,160,255,0.055); }
+        .market-table th .col-tip {
+          cursor: help;
+          border-bottom: 1px dotted rgba(156,163,175,0.55);
+          text-decoration: none;
+        }
+        .market-table th .col-tip::after {
+          content: attr(data-tip);
+          position: absolute;
+          left: 50%;
+          bottom: calc(100% + 8px);
+          transform: translateX(-50%);
+          min-width: 12rem;
+          max-width: 18rem;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: #111827;
+          border: 1px solid rgba(148,163,184,0.28);
+          color: #E5E7EB;
+          font-size: 0.72rem;
+          font-weight: 500;
+          line-height: 1.35;
+          white-space: normal;
+          text-align: left;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.12s ease;
+          z-index: 4;
+        }
+        .market-table th { position: relative; }
+        .market-table th .col-tip:hover::after { opacity: 1; }
+        .news-feed { margin: 6px 0 0; }
+        .news-item {
+          display: grid;
+          grid-template-columns: 4.5rem 1fr;
+          gap: 10px;
+          padding: 9px 0;
+          border-bottom: 1px solid rgba(148,163,184,0.10);
+          align-items: baseline;
+        }
+        .news-item:last-child { border-bottom: 0; }
+        .news-meta { color: #6B7280; font-size: 0.72rem; line-height: 1.3; }
+        .news-title {
+          color: #E5E7EB;
+          font-size: 0.86rem;
+          line-height: 1.35;
+          text-decoration: none;
+        }
+        .news-title:hover { color: #93C5FD; }
+        .news-ticker {
+          color: #5EA0FF;
+          font-size: 0.72rem;
+          font-weight: 650;
+          margin-right: 6px;
+        }
         .performance-strip {
           display: grid;
           grid-template-columns: repeat(4, minmax(75px, 1fr));
@@ -303,9 +358,8 @@ def market_table(
         tip = col_help.get(str(col))
         if tip:
             parts.append(
-                f'<th title="{escape(tip)}" style="cursor:help;'
-                f'text-decoration:underline dotted rgba(156,163,175,0.6);'
-                f'text-underline-offset:3px">{escape(str(col))}</th>')
+                f'<th><span class="col-tip" data-tip="{escape(tip)}">'
+                f'{escape(str(col))}</span></th>')
         else:
             parts.append(f"<th>{escape(str(col))}</th>")
     parts.append("</tr></thead><tbody>")
@@ -336,6 +390,35 @@ def market_table(
             parts.append(f'<td class="{css}">{cell}</td>')
         parts.append("</tr>")
     parts.append("</tbody></table></div>")
+    st.markdown("".join(parts), unsafe_allow_html=True)
+
+
+def news_feed(articles: list[dict], *, start: int = 0, count: int = 8) -> None:
+    """Compact headline list — title + date + ticker, links open in a new tab."""
+    if not articles:
+        st.caption("No recent headlines found for these tickers.")
+        return
+    slice_ = articles[start:start + count]
+    parts = ['<div class="news-feed">']
+    for item in slice_:
+        title = escape(str(item.get("title") or ""))
+        link = str(item.get("link") or "").strip()
+        date = escape(str(item.get("date") or "")[:10])
+        ticker = escape(str(item.get("ticker") or ""))
+        if link:
+            title_html = (
+                f'<a class="news-title" href="{escape(link)}" target="_blank" '
+                f'rel="noopener noreferrer">{title}</a>'
+            )
+        else:
+            title_html = f'<span class="news-title">{title}</span>'
+        parts.append(
+            f'<div class="news-item">'
+            f'<div class="news-meta">{date}</div>'
+            f'<div><span class="news-ticker">{ticker}</span>{title_html}</div>'
+            f"</div>"
+        )
+    parts.append("</div>")
     st.markdown("".join(parts), unsafe_allow_html=True)
 
 
