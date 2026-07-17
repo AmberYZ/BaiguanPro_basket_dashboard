@@ -55,3 +55,7 @@ constituents:
   name: 同程旅行
   weight: 1.0
   note: OTA/旅行
+- ticker: 09961.HK
+  name: 携程
+  weight: 1.0
+  note: OTA/旅行
