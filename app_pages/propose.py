@@ -111,6 +111,9 @@ if results is not None:
                     "weight": 1.0,
                     "rationale": "",
                 })
+                st.session_state[f"prop_nm_{item['ticker']}"] = item["name"]
+                st.session_state[f"prop_wt_{item['ticker']}"] = 1.0
+                st.session_state[f"prop_nt_{item['ticker']}"] = ""
                 st.toast(f"Added {item['name']} ({item['ticker']})")
                 st.rerun()
 
@@ -119,28 +122,53 @@ draft = st.session_state.proposal_constituents
 if not draft:
     st.info("No constituents yet — search above and add them one by one.")
 else:
-    st.caption(f"{len(draft)} constituent(s). Weight defaults to 1 (equal-weighted; "
-               "values are normalized). Fill in the constituent rationale — it shows up "
-               "in Basket Detail.")
-    edited = st.data_editor(
-        draft,
-        hide_index=True,
-        width="stretch",
-        num_rows="dynamic",
-        column_config={
-            "ticker": st.column_config.TextColumn("Ticker", disabled=True),
-            "name": st.column_config.TextColumn("Name"),
-            "weight": st.column_config.NumberColumn(
-                "Weight", min_value=0.0, step=1.0,
-                help="Default 1 = equal weight across names.",
-            ),
-            "rationale": st.column_config.TextColumn("Constituent rationale", width="large"),
-        },
+    st.caption(
+        f"{len(draft)} constituent(s). Weight defaults to 1 (equal-weighted; "
+        "values are normalized). Use Remove to drop a name."
     )
-    if isinstance(edited, pd.DataFrame):
-        st.session_state.proposal_constituents = edited.to_dict("records")
-    else:
-        st.session_state.proposal_constituents = edited
+    hdr = st.columns([1.4, 2.2, 1.0, 3.2, 0.9])
+    hdr[0].caption("Ticker")
+    hdr[1].caption("Name")
+    hdr[2].caption("Weight")
+    hdr[3].caption("Constituent rationale")
+    hdr[4].caption("")
+    for row in list(draft):
+        ticker = row["ticker"]
+        st.session_state.setdefault(f"prop_nm_{ticker}", row.get("name") or ticker)
+        st.session_state.setdefault(
+            f"prop_wt_{ticker}",
+            float(1.0 if row.get("weight") is None else row["weight"]),
+        )
+        st.session_state.setdefault(f"prop_nt_{ticker}", row.get("rationale") or "")
+        cols = st.columns([1.4, 2.2, 1.0, 3.2, 0.9])
+        cols[0].code(ticker)
+        cols[1].text_input("Name", key=f"prop_nm_{ticker}", label_visibility="collapsed")
+        cols[2].number_input(
+            "Weight", min_value=0.0, step=1.0, key=f"prop_wt_{ticker}",
+            label_visibility="collapsed",
+        )
+        cols[3].text_input(
+            "Rationale", key=f"prop_nt_{ticker}", label_visibility="collapsed",
+        )
+        if cols[4].button("Remove", key=f"prop_rm_{ticker}", width="stretch"):
+            st.session_state.proposal_constituents = [
+                r for r in st.session_state.proposal_constituents if r["ticker"] != ticker
+            ]
+            for prefix in ("prop_nm_", "prop_wt_", "prop_nt_"):
+                st.session_state.pop(f"{prefix}{ticker}", None)
+            st.toast(f"Removed {ticker}")
+            st.rerun()
+    # Keep draft list in sync with widget values for submit.
+    synced = []
+    for row in st.session_state.proposal_constituents:
+        ticker = row["ticker"]
+        synced.append({
+            "ticker": ticker,
+            "name": st.session_state.get(f"prop_nm_{ticker}", row.get("name") or ticker),
+            "weight": st.session_state.get(f"prop_wt_{ticker}", row.get("weight") or 1.0),
+            "rationale": st.session_state.get(f"prop_nt_{ticker}", row.get("rationale") or ""),
+        })
+    st.session_state.proposal_constituents = synced
 
 st.markdown("### 4 · Submit")
 if st.button("Create proposal", type="primary", disabled=not (name and draft)):
@@ -175,6 +203,10 @@ if st.button("Create proposal", type="primary", disabled=not (name and draft)):
     }
     save_basket(data, refresh_data=True)
     st.cache_data.clear()
+    for row in st.session_state.proposal_constituents:
+        ticker = row["ticker"]
+        for prefix in ("prop_nm_", "prop_wt_", "prop_nt_"):
+            st.session_state.pop(f"{prefix}{ticker}", None)
     st.session_state.proposal_constituents = []
     st.session_state.search_results = None
     st.session_state.search_quotes = {}

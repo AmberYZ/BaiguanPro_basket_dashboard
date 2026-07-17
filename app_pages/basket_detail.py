@@ -319,8 +319,22 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
     )
 
     const_key = f"edit_const_{b.id}"
+
+    def _seed_const_fields(rows: list[dict]) -> None:
+        for row in rows:
+            ticker = row["ticker"]
+            st.session_state[f"edit_nm_{b.id}_{ticker}"] = row.get("name") or ticker
+            st.session_state[f"edit_wt_{b.id}_{ticker}"] = float(
+                1.0 if row.get("weight") is None else row["weight"]
+            )
+            st.session_state[f"edit_nt_{b.id}_{ticker}"] = row.get("note") or ""
+
+    def _clear_const_fields(ticker: str) -> None:
+        for prefix in ("edit_nm_", "edit_wt_", "edit_nt_"):
+            st.session_state.pop(f"{prefix}{b.id}_{ticker}", None)
+
     if st.session_state.get("edit_const_basket") != b.id:
-        st.session_state[const_key] = [
+        rows = [
             {
                 "ticker": c.ticker,
                 "name": c.name,
@@ -329,6 +343,8 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
             }
             for c in b.constituents
         ]
+        st.session_state[const_key] = rows
+        _seed_const_fields(rows)
         st.session_state["edit_const_basket"] = b.id
 
     internal_heading("Add constituents")
@@ -375,40 +391,74 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                 if item["ticker"] in in_basket:
                     cols[3].button("Added", key=f"edit_added_{b.id}_{i}", disabled=True)
                 elif cols[3].button("＋ Add", key=f"edit_add_{b.id}_{i}"):
-                    st.session_state[const_key].append({
+                    new_row = {
                         "ticker": item["ticker"],
                         "name": item["name"],
                         "weight": 1.0,
                         "note": "",
-                    })
+                    }
+                    st.session_state[const_key].append(new_row)
+                    _seed_const_fields([new_row])
                     st.toast(f"Added {item['name']} ({item['ticker']})")
                     st.rerun()
 
-    edited = st.data_editor(
-        st.session_state[const_key],
-        hide_index=True,
-        width="stretch",
-        num_rows="dynamic",
-        key=f"const_editor_{b.id}",
-        column_config={
-            "ticker": st.column_config.TextColumn("Ticker", disabled=True),
-            "name": st.column_config.TextColumn("Name"),
-            "weight": st.column_config.NumberColumn(
-                "Weight", min_value=0.0, step=1.0,
-                help="Equal-weight baskets use 1 for every name; values are normalized.",
-            ),
-            "note": st.column_config.TextColumn("Constituent rationale"),
-        },
-    )
-    if isinstance(edited, pd.DataFrame):
-        st.session_state[const_key] = edited.to_dict("records")
+    internal_heading("Current constituents")
+    draft = st.session_state[const_key]
+    if not draft:
+        st.info("No constituents — search above and add at least one.")
     else:
-        st.session_state[const_key] = edited
+        st.caption(
+            f"{len(draft)} name(s). Edit weight / rationale inline; "
+            "use Remove to drop a ticker (does not rely on the table trash icon)."
+        )
+        hdr = st.columns([1.4, 2.2, 1.0, 3.2, 0.9])
+        hdr[0].caption("Ticker")
+        hdr[1].caption("Name")
+        hdr[2].caption("Weight")
+        hdr[3].caption("Constituent rationale")
+        hdr[4].caption("")
+        for row in list(draft):
+            ticker = row["ticker"]
+            cols = st.columns([1.4, 2.2, 1.0, 3.2, 0.9])
+            cols[0].code(ticker)
+            cols[1].text_input(
+                "Name",
+                key=f"edit_nm_{b.id}_{ticker}",
+                label_visibility="collapsed",
+            )
+            cols[2].number_input(
+                "Weight",
+                min_value=0.0,
+                step=1.0,
+                key=f"edit_wt_{b.id}_{ticker}",
+                label_visibility="collapsed",
+                help="Equal-weight baskets use 1; values are normalized on save.",
+            )
+            cols[3].text_input(
+                "Note",
+                key=f"edit_nt_{b.id}_{ticker}",
+                label_visibility="collapsed",
+            )
+            if cols[4].button("Remove", key=f"edit_rm_{b.id}_{ticker}", width="stretch"):
+                st.session_state[const_key] = [
+                    r for r in st.session_state[const_key] if r["ticker"] != ticker
+                ]
+                _clear_const_fields(ticker)
+                st.toast(f"Removed {ticker}")
+                st.rerun()
 
     if st.button("Save basket definition", type="primary", key=f"save_def_{b.id}"):
-        records = st.session_state[const_key]
         from src.baskets import _clean_constituents
 
+        records = []
+        for row in st.session_state[const_key]:
+            ticker = row["ticker"]
+            records.append({
+                "ticker": ticker,
+                "name": st.session_state.get(f"edit_nm_{b.id}_{ticker}", row.get("name") or ticker),
+                "weight": st.session_state.get(f"edit_wt_{b.id}_{ticker}", row.get("weight") or 1.0),
+                "note": st.session_state.get(f"edit_nt_{b.id}_{ticker}", row.get("note") or ""),
+            })
         records = _clean_constituents(records)
         if not records:
             st.error("A basket needs at least one constituent.")
@@ -423,8 +473,8 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                 },
             )
             st.cache_data.clear()
-            if const_key in st.session_state:
-                del st.session_state[const_key]
+            st.session_state.pop(const_key, None)
+            st.session_state.pop("edit_const_basket", None)
             flash_success("Basket definition updated.")
             st.rerun()
 

@@ -45,35 +45,37 @@ jobs:
 
       - name: Commit and push data cache
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config pull.rebase true
           mkdir -p data/prices
 
-          # Start from the latest main — app edits often land while this job runs.
-          git fetch origin main
-          git rebase origin/main
-
-          git add -A data/
-          if git diff --staged --quiet; then
-            echo "No data changes to commit."
-            exit 0
-          fi
-          git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
-
-          # Push with retries when another commit lands on main mid-run.
+          # App / basket edits can land on main while this long data job runs.
+          # On each attempt, rebuild the data-only commit on top of latest main
+          # instead of pushing from the stale checkout.
           for i in 1 2 3 4 5 6 7 8 9 10; do
+            echo "Push attempt $i"
             git fetch origin main
-            if ! git rebase origin/main; then
-              echo "Rebase conflict on attempt $i"
-              git rebase --abort
-              sleep $((i * 2))
-              continue
+
+            # Move HEAD/index to latest main while keeping refreshed data files
+            # in the working tree. Only data/ is staged, so remote app edits
+            # are preserved as the parent commit rather than accidentally reset.
+            git reset --mixed origin/main
+
+            git add -A data/
+            if git diff --staged --quiet; then
+              echo "No data changes to commit against latest main."
+              exit 0
             fi
+
+            git commit -m "chore: daily market data refresh $(date -u +%Y-%m-%d)"
+            git log --oneline -3
+
             if git push origin HEAD:main; then
               echo "Pushed on attempt $i"
               exit 0
             fi
+
             echo "Push rejected on attempt $i (remote moved); retrying..."
             sleep $((i * 2))
           done
