@@ -1,20 +1,20 @@
 id: going-global
-name: Going Global - EV & Advanced Manufacturing Exporters
+name: Going Global Champion 30
 status: active
 author: Baiguan Team
 created: 2026-04-01
-inception: 2026-04-01
+inception: '2026-04-01'
 tags:
 - going-overseas
 - EV
 - machinery
 - global-expansion
-thesis: 'Chinese manufacturers are turning overseas expansion from a revenue supplement
-  into a second growth curve - EVs, machinery, industrial automation and auto parts
-  with real localized production abroad. We focus on names where overseas revenue
-  share is rising and margins overseas are higher than domestic.
-
-  '
+thesis: 'China’s vast and still-fast export engine has produced a large class of companies
+  with real global influence. We screened Chinese companies listed in A-shares, Hong
+  Kong and the U.S., using overseas revenue scale and global relevance as the primary
+  test, with overseas growth, profitability and business quality as secondary filters.
+  The result is the China Global Champions 30: thirty representative companies across
+  five groups, together generating roughly USD 440 billion of overseas revenue. '
 benchmarks:
 - CSI300
 - SPX
@@ -28,21 +28,121 @@ team_charts:
 constituents:
 - ticker: 002594.SZ
   name: 比亚迪
-  weight: null
+  weight: 1.0
   note: EV exports + overseas plants (Thailand, Brazil, Hungary)
-- ticker: 600031.SH
-  name: 三一重工
-  weight: null
-  note: Construction machinery, overseas revenue share > 40%
-- ticker: 300124.SZ
-  name: 汇川技术
-  weight: null
-  note: Industrial automation champion expanding abroad
-- ticker: 601100.SH
-  name: 恒立液压
-  weight: null
-  note: Hydraulics global
-- ticker: 600660.SH
-  name: 福耀玻璃
-  weight: null
-  note: Auto glass global leader, US/EU localized capacity
+- ticker: 601138.SH
+  name: Foxconn Industrial Internet Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00992.HK
+  name: Lenovo Group
+  weight: 1.0
+  note: ''
+- ticker: 601899.SH
+  name: Zijin Mining Group Co Ltd Class A
+  weight: 1.0
+  note: ''
+- ticker: 000333.SZ
+  name: Midea Group Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 09988.HK
+  name: Alibaba Group Holding Ltd
+  weight: 1.0
+  note: ''
+- ticker: 01810.HK
+  name: Xiaomi Corp
+  weight: 1.0
+  note: ''
+- ticker: 600690.SH
+  name: Haier Smart Home
+  weight: 1.0
+  note: ''
+- ticker: 300750.SZ
+  name: CATL
+  weight: 1.0
+  note: ''
+- ticker: 02338.HK
+  name: Weichai Power Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00669.HK
+  name: Techtronic Industries Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00700.HK
+  name: Tencent Holdings Ltd
+  weight: 1.0
+  note: ''
+- ticker: 02333.HK
+  name: Great Wall Motor Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 688036.SH
+  name: Shenzhen Transsion Holdings Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 06031.HK
+  name: Sany Heavy Industry Co.,Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600699.SH
+  name: Ningbo Joyson Electronic Corp
+  weight: 1.0
+  note: ''
+- ticker: 603259.SH
+  name: WuXi AppTec Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 300308.SZ
+  name: Shandong Zhongji Electrical Equipment Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 000157.SZ
+  name: Zoomlion Heavy Industry Science and Technology Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 688235.SH
+  name: BeiGene Ltd.
+  weight: 1.0
+  note: ''
+- ticker: 300502.SZ
+  name: Eoptolink Technology Inc Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002602.SZ
+  name: Zhejiang Century Huatong Group Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 03606.HK
+  name: Fuyao Glass Industry Group
+  weight: 1.0
+  note: ''
+- ticker: 300760.SZ
+  name: Shenzhen Mindray Bio-Medical Electronics Co Ltd Class A
+  weight: 1.0
+  note: ''
+- ticker: 09992.HK
+  name: Pop Mart International Group Ltd
+  weight: 1.0
+  note: ''
+- ticker: 301308.SZ
+  name: Shenzhen Longsys Electronics Co. Ltd. A
+  weight: 1.0
+  note: ''
+- ticker: 300476.SZ
+  name: Victory Giant Technology Huizhou Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 09961.HK
+  name: Trip.com Group Ltd
+  weight: 1.0
+  note: ''
+- ticker: 688169.SH
+  name: Beijing Roborock Technology Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 09896.HK
+  name: MINISO Group Holding Limited
+  weight: 1.0
+  note: ''
