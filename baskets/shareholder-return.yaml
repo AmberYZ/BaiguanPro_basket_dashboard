@@ -1,45 +1,110 @@
 id: shareholder-return
-name: Shareholder Return Compounders
-status: active # proposed | active | archived
+name: Shareholder Return & Buyback (A shares top 20)
+status: active
 author: Baiguan Team
 created: 2026-04-01
-inception: 2026-04-01 # index base date (base = 100)
-tags: [dividends, buybacks, SOE, large-cap]
-thesis: >
-  Chinese companies - particularly SOEs and large-caps - have meaningfully
-  accelerated buybacks and dividends over the past 18 months. This is a
-  structural shift, not a one-off. In an environment where earnings growth can
-  be uncertain, capital returns provide a floor. Popular dividend indices are
-  heavily tilted toward banks and energy; we build a more balanced list where
-  the yield is real, the balance sheet supports continuation, and the stock
-  isn't already priced for it.
-benchmarks: [CSI300, HSI, SPX]
+inception: '2026-04-01'
+tags:
+- dividends
+- buybacks
+- SOE
+- large-cap
+thesis: 'Chinese companies have meaningfully accelerated buybacks and dividends over
+  the past 18 months. This is a structural shift, not a one-off. In an environment
+  where earnings growth can be uncertain, capital returns provide a floor. Popular
+  dividend indices are heavily tilted toward banks and energy; we build a more balanced
+  list where the yield is real, the balance sheet supports continuation, and the stock
+  isn''t already priced for it.
+
+  '
+benchmarks:
+- CSI300
+- HSI
+- SPX
 newsletters:
-  - title: Introducing Baiguan Pro - Our View on Chinese Assets
-    url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
-    date: 2026-04-01
+- title: Introducing Baiguan Pro - Our View on Chinese Assets
+  url: https://www.baiguan.news/p/baiguan-pro-china-assets-a-shares-hk-stocks-acwi-overweight-national-team-crrai-retail-institutional-sentiment-robotaxi-autonomous-vehicles-dividends-buybacks-soes-going-overseas-global-expansion-evs-experiential-consumption-ip-driven-pop-mart
+  date: 2026-04-01
+watchpoints: []
+team_charts: []
 constituents:
-  - ticker: 600900.SH
-    name: 长江电力
-    weight: null # null = equal weight
-    note: Hydropower cash machine, stable payout, non-bank yield anchor
-  - ticker: 601088.SH
-    name: 中国神华
-    weight: null
-    note: Coal + power integration, high dividend with strong balance sheet
-  - ticker: 600941.SH
-    name: 中国移动
-    weight: null
-    note: Telecom cash flows, rising payout ratio, buyback support
-  - ticker: 000333.SZ
-    name: 美的集团
-    weight: null
-    note: Consumer durables leader, consistent buybacks + dividends
-  - ticker: 000895.SZ
-    name: 双汇发展
-    weight: null
-    note: Staples with high payout ratio, defensive yield
-  - ticker: 601006.SH
-    name: 大秦铁路
-    weight: null
-    note: Freight rail utility-like economics, steady dividend
+- ticker: 000333.SZ
+  name: Midea Group Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600690.SH
+  name: Qingdao Haier Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002352.SZ
+  name: SF Holding
+  weight: 1.0
+  note: ''
+- ticker: 601919.SH
+  name: COSCO SHIPPING Holdings Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 603565.SH
+  name: ZhongGu Logistics
+  weight: 1.0
+  note: ''
+- ticker: 000513.SZ
+  name: Livzon
+  weight: 1.0
+  note: ''
+- ticker: 600329.SH
+  name: 达仁堂
+  weight: 1.0
+  note: ''
+- ticker: 002847.SZ
+  name: 盐津铺子
+  weight: 1.0
+  note: ''
+- ticker: 603360.SH
+  name: 百微化学
+  weight: 1.0
+  note: ''
+- ticker: 600566.SH
+  name: 济川药业
+  weight: 1.0
+  note: ''
+- ticker: 000739.SZ
+  name: 普洛药业
+  weight: 1.0
+  note: ''
+- ticker: 000651.SZ
+  name: Gree
+  weight: 1.0
+  note: ''
+- ticker: 600211.SH
+  name: 西藏药业
+  weight: 1.0
+  note: ''
+- ticker: 300979.SZ
+  name: 华利集团
+  weight: 1.0
+  note: ''
+- ticker: 002572.SZ
+  name: 索菲亚
+  weight: 1.0
+  note: ''
+- ticker: 600036.SH
+  name: China Merchants Bank Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 603833.SH
+  name: 欧派家居
+  weight: 1.0
+  note: ''
+- ticker: 002311.SZ
+  name: 海大集团
+  weight: 1.0
+  note: ''
+- ticker: 002867.SZ
+  name: 周大生
+  weight: 1.0
+  note: ''
+- ticker: 601021.SH
+  name: Spring Airlines Co Ltd
+  weight: 1.0
+  note: ''
