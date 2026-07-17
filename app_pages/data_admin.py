@@ -30,11 +30,13 @@ st.markdown(
 )
 
 if github_enabled() and st.button("Test GitHub connection"):
+    from src.github_sync import token_fingerprint
+
     err = check_connection()
     if err:
         st.error(err)
     else:
-        st.success("GitHub token and repo look good.")
+        st.success(f"GitHub token and repo look good ({token_fingerprint()}).")
 
 with st.expander("Market data provider cascade", expanded=False):
     st.markdown(

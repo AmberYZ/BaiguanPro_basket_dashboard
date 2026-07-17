@@ -21,6 +21,10 @@ def _load_secrets_into_env() -> None:
 
     Locally you can keep using a `.env` file (loaded by ``src.data``). On
     Streamlit Community Cloud, put the same keys in App settings → Secrets.
+
+    Values overwrite existing env vars (setdefault would leave a stale empty
+    token in place). Surrounding quotes are stripped in case the secrets UI
+    double-quoted a value.
     """
     try:
         secrets = st.secrets
@@ -32,7 +36,10 @@ def _load_secrets_into_env() -> None:
         except Exception:  # noqa: BLE001
             continue
         if isinstance(value, (str, int, float, bool)):
-            os.environ.setdefault(str(key), str(value))
+            text = str(value).strip()
+            if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
+                text = text[1:-1].strip()
+            os.environ[str(key)] = text
 
 
 _load_secrets_into_env()

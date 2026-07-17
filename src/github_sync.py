@@ -26,10 +26,12 @@ WORKFLOW_FILE = "update-market-data.yml"
 
 
 def _token() -> str:
-    # split()/join() drops any stray whitespace or newlines that sneak in when a
-    # token is pasted into Streamlit secrets (a common cause of malformed auth
-    # headers → GitHub 400/401).
-    return "".join(os.environ.get("GITHUB_TOKEN", "").split())
+    # Drop whitespace/newlines from paste mistakes, and strip accidental
+    # surrounding quotes (e.g. GITHUB_TOKEN = "\"github_pat_...\"").
+    raw = "".join(os.environ.get("GITHUB_TOKEN", "").split())
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in {'"', "'"}:
+        raw = raw[1:-1]
+    return raw
 
 
 def enabled() -> bool:
@@ -45,11 +47,21 @@ def _branch() -> str:
 
 
 def _headers() -> dict[str, str]:
+    # Fine-grained PATs prefer Bearer; classic PATs accept either.
     return {
         "Authorization": f"Bearer {_token()}",
         "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-05",
+        "X-GitHub-Api-Version": "2022-11-28",
     }
+
+
+def token_fingerprint() -> str:
+    """Safe debug string for the UI (never the full token)."""
+    tok = _token()
+    if not tok:
+        return "missing"
+    prefix = tok[:11] if tok.startswith("github_pat") else tok[:4]
+    return f"{prefix}… ({len(tok)} chars)"
 
 
 def _rel(path: Path) -> str:
@@ -163,11 +175,32 @@ def check_connection() -> str | None:
     """Quick token/repo sanity check for the UI. Returns error or None."""
     if not enabled():
         return "GITHUB_TOKEN not set in Streamlit secrets."
+    tok = _token()
+    if not (tok.startswith("ghp_") or tok.startswith("github_pat_")):
+        return (
+            f"Token looks wrong (got {token_fingerprint()}). "
+            "Expected github_pat_… (fine-grained) or ghp_… (classic)."
+        )
+    # Fine-grained PATs are long; a truncated paste is a common 400 cause.
+    if tok.startswith("github_pat_") and len(tok) < 80:
+        return (
+            f"Token looks truncated ({token_fingerprint()}). "
+            "Regenerate the fine-grained PAT and paste the full value once."
+        )
     url = f"https://api.github.com/repos/{_repo()}"
     try:
         resp = requests.get(url, headers=_headers(), timeout=20)
         if resp.status_code >= 400:
-            return _explain(resp)
+            # Retry with the older "token" scheme (some classic PATs prefer it).
+            alt = dict(_headers())
+            alt["Authorization"] = f"token {_token()}"
+            resp2 = requests.get(url, headers=alt, timeout=20)
+            if resp2.status_code < 400:
+                return None
+            return (
+                f"{_explain(resp)} "
+                f"(token={token_fingerprint()}, repo={_repo()})"
+            )
     except Exception as exc:  # noqa: BLE001
         return str(exc)
     return None
