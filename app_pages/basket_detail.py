@@ -225,36 +225,25 @@ watch_text = st.text_area(
     placeholder="- Policy catalyst to monitor\n- Valuation level where we get more cautious\n- Data series / company KPI to update monthly",
 )
 
-saved_titles = [title for title, slug in chart_options.items() if slug in b.team_charts]
-internal_heading("Attach team charts to this basket")
-selected_titles = st.multiselect(
-    "Attach team charts to this basket",
-    list(chart_options),
-    default=saved_titles,
-    label_visibility="collapsed",
-)
-
-if st.button("Save watchpoints / chart links", type="primary"):
+if st.button("Save watchpoints", type="primary"):
     watchpoints = [
         line.strip()[2:].strip() if line.strip().startswith("- ") else line.strip()
         for line in watch_text.splitlines()
         if line.strip()
     ]
-    update_basket_fields(
-        b.id,
-        {"watchpoints": watchpoints,
-         "team_charts": [chart_options[t] for t in selected_titles]},
-    )
+    update_basket_fields(b.id, {"watchpoints": watchpoints})
     st.cache_data.clear()
-    flash_success("Saved watchpoints and chart links.")
+    flash_success("Saved watchpoints.")
     st.rerun()
 
 st.divider()
-with st.expander("Internal — edit tags, newsletters, definition", expanded=False):
-    internal_badge("Approve proposals, edit tags / newsletters / definition, or delete.")
+with st.expander("Internal — edit tags, newsletters, charts, definition", expanded=False):
+    internal_badge(
+        "Approve proposals, edit tags / newsletters / team charts / definition, or delete."
+    )
     st.caption(
         "Any teammate with the password can activate a proposal. "
-        "Tags, newsletters, and basket definition are editable below."
+        "Tags, newsletters, team charts, and basket definition are editable below."
     )
     if b.status == "proposed":
         if st.button("Approve and activate basket", type="primary"):
@@ -293,7 +282,18 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                                                help="YYYY-MM-DD"),
         },
     )
-    if st.button("Save tags & newsletters", type="primary", key=f"save_meta_{b.id}"):
+
+    internal_heading("Attach team charts to this basket")
+    saved_titles = [title for title, slug in chart_options.items() if slug in b.team_charts]
+    selected_titles = st.multiselect(
+        "Attach team charts to this basket",
+        list(chart_options),
+        default=saved_titles,
+        key=f"edit_charts_{b.id}",
+        label_visibility="collapsed",
+    )
+
+    if st.button("Save tags, newsletters & charts", type="primary", key=f"save_meta_{b.id}"):
         newsletters = []
         frame = edited_nl if isinstance(edited_nl, pd.DataFrame) else pd.DataFrame(edited_nl)
         for row in frame.to_dict("records"):
@@ -305,9 +305,16 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                 "url": url,
                 "date": str(row.get("date") or "").strip()[:10],
             })
-        update_basket_fields(b.id, {"tags": edit_tags, "newsletters": newsletters})
+        update_basket_fields(
+            b.id,
+            {
+                "tags": edit_tags,
+                "newsletters": newsletters,
+                "team_charts": [chart_options[t] for t in selected_titles],
+            },
+        )
         st.cache_data.clear()
-        flash_success("Tags and newsletters saved.")
+        flash_success("Tags, newsletters, and team charts saved.")
         st.rerun()
 
     st.divider()
