@@ -17,7 +17,8 @@ permissions:
 
 concurrency:
   group: update-market-data
-  cancel-in-progress: false
+  # Prefer the newest run — overlapping refreshes otherwise fight over main.
+  cancel-in-progress: true
 
 jobs:
   update:
@@ -45,7 +46,8 @@ jobs:
 
       - name: Commit and push data cache
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          echo "Workflow push helper: rebuild-on-latest-main (v2)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p data/prices
@@ -58,8 +60,7 @@ jobs:
             git fetch origin main
 
             # Move HEAD/index to latest main while keeping refreshed data files
-            # in the working tree. Only data/ is staged, so remote app edits
-            # are preserved as the parent commit rather than accidentally reset.
+            # in the working tree.
             git reset --mixed origin/main
 
             git add -A data/
