@@ -5,6 +5,7 @@ import streamlit as st
 from app_pages._shared import (STATUS_BADGE, cache_banner, get_basket_index,
                                get_baskets, get_price, UNIVERSAL_BENCHMARKS)
 from src.analytics import component_indices, fmt_pct, perf_stats, rebase
+from src.auth import flash_success
 from src.baskets import delete_basket, update_basket_fields
 from src.chart_registry import (chart_description, chart_title, load_chart_modules,
                                 render_chart)
@@ -225,7 +226,7 @@ if st.button("Save watchpoints / chart links", type="primary"):
          "team_charts": [chart_options[t] for t in selected_titles]},
     )
     st.cache_data.clear()
-    st.success("Saved.")
+    flash_success("Saved watchpoints and chart links.")
     st.rerun()
 
 st.divider()
@@ -239,7 +240,7 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
         if st.button("Approve and activate basket", type="primary"):
             update_basket_fields(b.id, {"status": "active"})
             st.cache_data.clear()
-            st.success("Basket activated.")
+            flash_success(f"“{b.name}” is now Active.")
             st.rerun()
 
     internal_heading("Tags")
@@ -286,7 +287,7 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
             })
         update_basket_fields(b.id, {"tags": edit_tags, "newsletters": newsletters})
         st.cache_data.clear()
-        st.success("Tags and newsletters saved.")
+        flash_success("Tags and newsletters saved.")
         st.rerun()
 
     st.divider()
@@ -335,12 +336,12 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
                 },
             )
             st.cache_data.clear()
-            st.success("Basket definition updated.")
+            flash_success("Basket definition updated.")
             st.rerun()
 
     confirm = st.text_input("To delete, type the basket ID", placeholder=b.id)
     if st.button("Delete basket", type="secondary", disabled=confirm != b.id):
         delete_basket(b.id)
         st.cache_data.clear()
-        st.success("Basket deleted.")
+        flash_success(f"Deleted “{b.name}”.")
         st.switch_page("app_pages/overview.py")

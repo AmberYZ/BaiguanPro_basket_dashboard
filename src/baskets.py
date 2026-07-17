@@ -100,14 +100,12 @@ def save_basket(data: dict, directory: Path = BASKETS_DIR, *,
     path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
                     encoding="utf-8")
     if sync:
-        from src.github_sync import persist_file, trigger_data_update
+        from src.github_sync import persist_file, report, trigger_data_update
 
-        err = persist_file(path, f"chore: save basket {slug}")
-        if err:
-            raise RuntimeError(f"Saved locally but GitHub sync failed: {err}")
-        if refresh_data:
+        ok = report(persist_file(path, f"chore: save basket {slug}"))
+        if ok and refresh_data:
             # Fire-and-forget: Actions will pull prices for any new tickers.
-            trigger_data_update()
+            report(trigger_data_update())
     return path
 
 
@@ -155,8 +153,6 @@ def delete_basket(basket_id: str, directory: Path = BASKETS_DIR) -> None:
     if not path.exists():
         raise ValueError(f"Unknown basket id: {basket_id}")
     path.unlink()
-    from src.github_sync import delete_remote_file
+    from src.github_sync import delete_remote_file, report
 
-    err = delete_remote_file(path, f"chore: delete basket {basket_id}")
-    if err:
-        raise RuntimeError(f"Deleted locally but GitHub sync failed: {err}")
+    report(delete_remote_file(path, f"chore: delete basket {basket_id}"))

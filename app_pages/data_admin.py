@@ -5,6 +5,7 @@ import streamlit as st
 from app_pages._shared import UNIVERSAL_BENCHMARKS, cache_banner, get_baskets
 from src.data import (EODHD_API_KEY, TUSHARE_TOKEN, update_fundamentals,
                       update_prices)
+from src.github_sync import check_connection
 from src.github_sync import enabled as github_enabled
 from src.github_sync import trigger_data_update
 from src.ui import internal_badge, internal_page
@@ -27,6 +28,13 @@ st.markdown(
     f"- Tushare token: {'set' if TUSHARE_TOKEN else 'not set (skipped in A-share price cascade)'}\n"
     f"- GitHub sync: {'on (web edits + daily refresh persist to the repo)' if github_enabled() else '**off** — set `GITHUB_TOKEN` in Streamlit secrets for durable cloud edits'}"
 )
+
+if github_enabled() and st.button("Test GitHub connection"):
+    err = check_connection()
+    if err:
+        st.error(err)
+    else:
+        st.success("GitHub token and repo look good.")
 
 with st.expander("Market data provider cascade", expanded=False):
     st.markdown(

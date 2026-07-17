@@ -6,6 +6,7 @@ from app_pages._shared import (basket_summary_rows, cache_banner,
                                get_basket_index, get_baskets, get_price,
                                UNIVERSAL_BENCHMARKS)
 from src.analytics import basket_index, perf_stats, rebase
+from src.auth import with_auth
 from src.baskets import load_baskets
 from src.data import fundamentals_for
 from src.ui import (BLUE, GREEN, RED, market_table, performance_strip,
@@ -170,7 +171,7 @@ if selected_tags:
 
 baskets = [b for b in get_baskets() if b.id in set(df["_id"])]
 basket_links = {
-    row["Basket"]: f"/basket_detail?basket={row['_id']}"
+    row["Basket"]: with_auth(f"/basket_detail?basket={row['_id']}")
     for _, row in df.iterrows()
 }
 
@@ -281,7 +282,7 @@ for row in range(0, len(baskets), 2):
                 title_col, open_col = st.columns([5, 1])
                 with title_col:
                     st.markdown(
-                        f"#### [{b.name}](/basket_detail?basket={b.id})"
+                        f"#### [{b.name}]({with_auth(f'/basket_detail?basket={b.id}')})"
                     )
                 with open_col:
                     if st.button("Open", key=f"open_{b.id}", width="stretch"):

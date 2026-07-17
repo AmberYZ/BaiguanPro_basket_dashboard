@@ -37,6 +37,12 @@ def _load_secrets_into_env() -> None:
 
 _load_secrets_into_env()
 
+from src.auth import (  # noqa: E402
+    keep_auth_in_url,
+    remember_auth,
+    restore_auth_from_query,
+    show_flash,
+)
 from src.baskets import seed_baskets  # noqa: E402
 from src.scheduler import start_daily_update  # noqa: E402
 from src.ui import apply_theme  # noqa: E402
@@ -74,16 +80,24 @@ def password_gate() -> None:
     """Tiny internal gate for early team prototypes.
 
     Set APP_PASSWORD in Streamlit secrets (or the environment) to enable it.
-    This is not a replacement for proper user auth when the dashboard becomes
-    subscriber-facing.
+    After a successful login we stamp a short token into the URL (``k=``) so
+    clicking Overview → Basket Detail links, or refreshing the page, does not
+    ask for the password again.
     """
     password = os.environ.get("APP_PASSWORD")
-    if not password or st.session_state.get("authenticated"):
+    if not password:
         return
+    if st.session_state.get("authenticated"):
+        keep_auth_in_url()
+        return
+    if restore_auth_from_query(password):
+        return
+
     st.title("Baiguan Pro Index")
+    st.caption("Enter the team password once — you'll stay signed in on this browser.")
     entered = st.text_input("Team password", type="password")
     if entered == password:
-        st.session_state.authenticated = True
+        remember_auth(password)
         st.rerun()
     if entered:
         st.error("Wrong password.")
@@ -91,6 +105,7 @@ def password_gate() -> None:
 
 
 password_gate()
+show_flash()
 
 pages = st.navigation([
     st.Page("app_pages/overview.py", title="Overview", default=True),

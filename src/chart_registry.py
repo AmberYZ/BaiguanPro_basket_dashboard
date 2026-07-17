@@ -57,11 +57,9 @@ def save_chart(title: str, code: str, slug: str | None = None) -> Path:
     slug = slug or chart_slug(title)
     path = CHARTS_DIR / f"{slug}.py"
     path.write_text(code, encoding="utf-8")
-    from src.github_sync import persist_file
+    from src.github_sync import persist_file, report
 
-    err = persist_file(path, f"chore: save chart {slug}")
-    if err:
-        raise RuntimeError(f"Saved locally but GitHub sync failed: {err}")
+    report(persist_file(path, f"chore: save chart {slug}"))
     return path
 
 
