@@ -709,10 +709,39 @@ def _normalize_ticker(code: str, exchange: str) -> str | None:
 _normalize_cn_ticker = _normalize_ticker
 
 
+_SEARCH_STOPWORDS = frozenset({
+    "ltd", "limited", "inc", "corp", "corporation", "co", "company",
+    "holdings", "holding", "group", "plc", "sa", "ag", "nv", "the",
+    "and", "of", "adr", "ads", "american", "depositary", "depository",
+    "shares", "share", "ordinary", "class",
+})
+
+
+def _normalize_search_query(query: str) -> str:
+    """Strip exchange prefixes like 'NASDAQ: ATAT' → 'ATAT'."""
+    q = query.strip()
+    q = re.sub(
+        r"^(NASDAQ|NYSE|AMEX|OTC|HKEX|SSE|SZSE|BATS|US)\s*[:/\-]\s*",
+        "",
+        q,
+        flags=re.IGNORECASE,
+    )
+    return q.strip()
+
+
+def _name_search_tokens(query: str) -> list[str]:
+    """Meaningful tokens for multi-word company-name matching."""
+    raw = re.findall(r"[a-z0-9]+", query.lower())
+    tokens = [t for t in raw if t not in _SEARCH_STOPWORDS and len(t) >= 2]
+    # Keep at least one token even if everything was a stopword.
+    return tokens or [t for t in raw if len(t) >= 2]
+
+
 def _search_eodhd_symbol_lists(query: str, limit: int) -> list[dict]:
     """Search cached EODHD HK/A/US symbol directories (works when /search misses)."""
     q = query.strip().lower()
     q_digits = re.sub(r"\D", "", query)
+    tokens = _name_search_tokens(query)
     out: list[dict] = []
     for exchange in ("HK", "SHG", "SHE", "US"):
         df = _load_eodhd_symbol_list(exchange)
@@ -722,12 +751,23 @@ def _search_eodhd_symbol_lists(query: str, limit: int) -> list[dict]:
         code_col = "Code" if "Code" in df.columns else None
         if not code_col:
             continue
+        # Exact/substring code match (single token queries like ATAT / Atour).
         mask = df[code_col].astype(str).str.lower().str.contains(re.escape(q), na=False)
         if q_digits and exchange != "US":
             mask = mask | df[code_col].astype(str).str.contains(q_digits, na=False)
         if name_col:
-            mask = mask | df[name_col].astype(str).str.lower().str.contains(
-                re.escape(q), na=False)
+            names = df[name_col].astype(str).str.lower()
+            # Full-string substring (works for short queries).
+            mask = mask | names.str.contains(re.escape(q), na=False)
+            # Token AND: "Atour Lifestyle Holdings Ltd - ADR" → atour + lifestyle
+            # matches "... Holdings Limited American Depositary Shares".
+            if len(tokens) >= 2:
+                token_mask = pd.Series(True, index=df.index)
+                for tok in tokens:
+                    token_mask = token_mask & names.str.contains(re.escape(tok), na=False)
+                mask = mask | token_mask
+            elif len(tokens) == 1 and tokens[0] != q:
+                mask = mask | names.str.contains(re.escape(tokens[0]), na=False)
         hits = df[mask].head(limit)
         for _, row in hits.iterrows():
             ticker = _normalize_ticker(row[code_col], exchange)
@@ -787,10 +827,15 @@ def _search_direct_code(query: str) -> list[dict]:
         if suffix == "US":
             if us_list is None:
                 us_list = _load_eodhd_symbol_list("US")
-            if not us_list.empty and "Code" in us_list.columns:
-                hit = us_list[us_list["Code"].astype(str).str.upper() == code.upper()]
-                if not hit.empty and "Name" in hit.columns:
-                    name = hit.iloc[0]["Name"] or name
+            # Only accept letter tickers that actually exist on the US list
+            # (avoids inventing ATOUR.US when the user typed "Atour").
+            if us_list.empty or "Code" not in us_list.columns:
+                continue
+            hit = us_list[us_list["Code"].astype(str).str.upper() == code.upper()]
+            if hit.empty:
+                continue
+            if "Name" in hit.columns:
+                name = hit.iloc[0]["Name"] or name
         if fund is not None and not fund.empty and name == ticker:
             code_stripped = code.lstrip("0") if code.isdigit() else code
             rows = fund[
@@ -911,7 +956,7 @@ def search_tickers(query: str, limit: int = 12) -> list[dict]:
       4. Names already in basket YAML
       5. Cached fundamentals parquet
     """
-    query = query.strip()
+    query = _normalize_search_query(query)
     if not query:
         return []
 
@@ -939,7 +984,12 @@ def search_tickers(query: str, limit: int = 12) -> list[dict]:
     _absorb(_search_eodhd_symbol_lists(query, limit))
     if len(merged) >= limit:
         return merged[:limit]
-    _absorb(_search_eodhd_api(query, limit))
+    # Prefer the ticker-looking token for free-text API when the query is long.
+    api_query = query
+    tokens = _name_search_tokens(query)
+    if len(query) > 24 and tokens:
+        api_query = " ".join(tokens[:3])
+    _absorb(_search_eodhd_api(api_query, limit))
     if len(merged) >= limit:
         return merged[:limit]
     _absorb(_search_basket_names(query, limit))
