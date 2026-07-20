@@ -61,3 +61,11 @@ constituents:
   name: Maoyan Entertainment
   weight: 1.0
   note: ''
+- ticker: ATAT.US
+  name: Atour Lifestyle Holdings Limited American Depositary Shares
+  weight: 1.0
+  note: ''
+- ticker: HTHT.US
+  name: Huazhu Group Ltd
+  weight: 1.0
+  note: ''
