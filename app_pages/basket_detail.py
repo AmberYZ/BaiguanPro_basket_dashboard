@@ -360,7 +360,7 @@ with st.expander("Internal — edit tags, newsletters, charts, definition", expa
     with search_col:
         edit_query = st.text_input(
             "Search tickers",
-            placeholder="e.g. Pop Mart, 09992, BYD, 002594",
+            placeholder="e.g. Pop Mart, 09992, BYD, TCOM, 002594",
             key=f"edit_search_q_{b.id}",
             label_visibility="collapsed",
         )

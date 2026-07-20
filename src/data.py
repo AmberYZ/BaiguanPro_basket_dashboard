@@ -12,6 +12,9 @@ Provider priority (try in order, first success wins):
     1. EODHD EOD
     2. akshare HK daily
 
+  Prices — US (incl. China ADRs like TCOM / BABA)
+    1. EODHD EOD (.US)
+
   Prices — benchmarks
     CSI300/CSI500: akshare CN index
     HSI: akshare Sina → Stooq
@@ -85,8 +88,18 @@ def _normalize(df: pd.DataFrame, date_col: str, close_col: str) -> pd.Series:
     return s[s.index >= START_DATE].rename("close")
 
 
+# EODHD US listing venues — normalize all to basket suffix .US (e.g. TCOM.US).
+_US_EXCHANGES = frozenset({
+    "US", "NASDAQ", "NYSE", "AMEX", "BATS", "NYS", "NAS",
+    "OTC", "OTCMKTS", "PINK", "NYSEARCA", "ARCA", "NYSE MKT", "NYSEMKT",
+})
+
+
 def _eodhd_symbol(ticker: str) -> str:
-    code, suffix = ticker.split(".")
+    # US class shares use a dash in EODHD (BRK-B.US); keep the last suffix only.
+    if ticker.upper().endswith(".US"):
+        return ticker
+    code, suffix = ticker.rsplit(".", 1)
     suffix = suffix.upper()
     if suffix == "SH":
         return f"{code}.SHG"
@@ -244,6 +257,20 @@ def _fetch_hk_akshare(ticker: str) -> pd.Series:
     return _normalize(df, "date", "close")
 
 
+# ---------------------------------------------------------------- US
+
+def _fetch_us_eodhd(ticker: str) -> pd.Series:
+    url = f"https://eodhd.com/api/eod/{_eodhd_symbol(ticker)}"
+    resp = requests.get(url, params={"api_token": EODHD_API_KEY, "fmt": "json",
+                                     "from": START_DATE}, timeout=30)
+    resp.raise_for_status()
+    df = pd.DataFrame(resp.json())
+    if df.empty:
+        raise RuntimeError(f"EODHD returned no US data for {ticker}")
+    close_col = "adjusted_close" if "adjusted_close" in df.columns else "close"
+    return _normalize(df, "date", close_col)
+
+
 # ---------------------------------------------------------------- Benchmarks
 
 def _fetch_stooq(symbol: str) -> pd.Series:
@@ -304,6 +331,10 @@ def fetch_price_series(ticker: str) -> pd.Series:
         if EODHD_API_KEY:
             fetchers.append(_fetch_hk_eodhd)
         fetchers.append(_fetch_hk_akshare)
+    elif market == "US":
+        if not EODHD_API_KEY:
+            raise ValueError(f"US ticker {ticker} requires EODHD_API_KEY")
+        fetchers = [_fetch_us_eodhd]
     else:
         raise ValueError(f"Unknown market suffix in {ticker}")
 
@@ -537,9 +568,15 @@ def update_fundamentals(tickers: list[str], log=print) -> None:
     year_start = pd.Timestamp(datetime.now().year, 1, 1)
     rows = []
     for t in tickers:
-        code = t.split(".")[0]
+        code = t.rsplit(".", 1)[0]
         s = load_price(t)
-        row = {"code": code, "market": "HK" if t.endswith(".HK") else "A",
+        if t.endswith(".HK"):
+            market_label = "HK"
+        elif t.endswith(".US"):
+            market_label = "US"
+        else:
+            market_label = "A"
+        row = {"code": code, "market": market_label,
                "price": pd.NA, "pct_chg_1d": pd.NA, "pct_ytd": pd.NA,
                "pct_1m": pd.NA, "pct_3m": pd.NA, "pct_1y": pd.NA,
                "pe_ttm": pd.NA, "pb": pd.NA, "dv_ttm": pd.NA, "mkt_cap": pd.NA,
@@ -610,7 +647,7 @@ def _symbol_list_path(exchange: str) -> Path:
 
 
 def _refresh_eodhd_symbol_list(exchange: str) -> pd.DataFrame:
-    """Download and cache an EODHD exchange symbol list (HK / SHG / SHE)."""
+    """Download and cache an EODHD exchange symbol list (HK / SHG / SHE / US)."""
     _ensure_dirs()
     resp = requests.get(
         f"https://eodhd.com/api/exchange-symbol-list/{exchange}",
@@ -640,9 +677,22 @@ def _load_eodhd_symbol_list(exchange: str, *, max_age_days: int = 7) -> pd.DataF
         return pd.read_parquet(path) if path.exists() else pd.DataFrame()
 
 
-def _normalize_cn_ticker(code: str, exchange: str) -> str | None:
-    exchange = exchange.upper()
-    raw = re.sub(r"\D", "", str(code))
+def _normalize_ticker(code: str, exchange: str) -> str | None:
+    """Map an EODHD Code + Exchange to basket ticker form.
+
+    A / HK stay numeric (002594.SZ, 09992.HK). US letter codes become TCOM.US.
+    """
+    exchange = (exchange or "").upper().replace(" ", "")
+    raw_code = str(code).strip().upper()
+
+    if exchange in _US_EXCHANGES or exchange == "NYSEMKT":
+        # Letter tickers; optional class share like BRK-B / BRK.B.
+        us = raw_code.replace(".", "-")
+        if re.fullmatch(r"[A-Z]{1,5}", us) or re.fullmatch(r"[A-Z]{1,4}-[A-Z]", us):
+            return f"{us}.US"
+        return None
+
+    raw = re.sub(r"\D", "", raw_code)
     if not raw:
         return None
     if exchange == "HK":
@@ -655,12 +705,16 @@ def _normalize_cn_ticker(code: str, exchange: str) -> str | None:
     return f"{raw.zfill(6)}.{suffix}"
 
 
+# Back-compat alias for any external callers.
+_normalize_cn_ticker = _normalize_ticker
+
+
 def _search_eodhd_symbol_lists(query: str, limit: int) -> list[dict]:
-    """Search cached EODHD HK/A-share symbol directories (works when /search misses HK)."""
+    """Search cached EODHD HK/A/US symbol directories (works when /search misses)."""
     q = query.strip().lower()
     q_digits = re.sub(r"\D", "", query)
     out: list[dict] = []
-    for exchange in ("HK", "SHG", "SHE"):
+    for exchange in ("HK", "SHG", "SHE", "US"):
         df = _load_eodhd_symbol_list(exchange)
         if df.empty:
             continue
@@ -669,14 +723,14 @@ def _search_eodhd_symbol_lists(query: str, limit: int) -> list[dict]:
         if not code_col:
             continue
         mask = df[code_col].astype(str).str.lower().str.contains(re.escape(q), na=False)
-        if q_digits:
+        if q_digits and exchange != "US":
             mask = mask | df[code_col].astype(str).str.contains(q_digits, na=False)
         if name_col:
             mask = mask | df[name_col].astype(str).str.lower().str.contains(
                 re.escape(q), na=False)
         hits = df[mask].head(limit)
         for _, row in hits.iterrows():
-            ticker = _normalize_cn_ticker(row[code_col], exchange)
+            ticker = _normalize_ticker(row[code_col], exchange)
             if not ticker:
                 continue
             out.append({
@@ -714,25 +768,42 @@ def _search_direct_code(query: str) -> list[dict]:
             candidates.extend([f"{q}.SH", f"{q}.SZ"])
     elif re.fullmatch(r"\d{6}\.(SH|SZ|BJ)", q):
         candidates.append(q)
+    elif re.fullmatch(r"[A-Z]{1,5}\.US", q):
+        candidates.append(q)
+    elif re.fullmatch(r"[A-Z]{1,4}-[A-Z]\.US", q):
+        candidates.append(q)
+    elif re.fullmatch(r"[A-Z]{1,5}", q):
+        candidates.append(f"{q}.US")
+    elif re.fullmatch(r"[A-Z]{1,4}[-.][A-Z]", q):
+        candidates.append(f"{q.replace('.', '-')}.US")
 
     out = []
     fund = load_fundamentals()
+    us_list = None
     for ticker in candidates:
         name = ticker
-        if fund is not None and not fund.empty:
-            code = ticker.split(".")[0]
-            code_stripped = code.lstrip("0")
+        code = ticker.rsplit(".", 1)[0]
+        suffix = ticker.rsplit(".", 1)[-1]
+        if suffix == "US":
+            if us_list is None:
+                us_list = _load_eodhd_symbol_list("US")
+            if not us_list.empty and "Code" in us_list.columns:
+                hit = us_list[us_list["Code"].astype(str).str.upper() == code.upper()]
+                if not hit.empty and "Name" in hit.columns:
+                    name = hit.iloc[0]["Name"] or name
+        if fund is not None and not fund.empty and name == ticker:
+            code_stripped = code.lstrip("0") if code.isdigit() else code
             rows = fund[
                 fund["code"].astype(str).str.lstrip("0") == code_stripped
-            ]
-            if rows.empty:
+            ] if code.isdigit() else fund[fund["code"].astype(str).str.upper() == code]
+            if rows.empty and code.isdigit():
                 rows = fund[fund["code"].astype(str) == code]
             if not rows.empty and "name_eodhd" in rows.columns:
                 name = rows.iloc[0].get("name_eodhd") or name
         out.append({
             "ticker": ticker,
             "name": name,
-            "exchange": ticker.split(".")[-1],
+            "exchange": suffix,
             "type": "code",
             "source": "direct-code",
         })
@@ -753,9 +824,7 @@ def _search_eodhd_api(query: str, limit: int) -> list[dict]:
         for item in resp.json()[:limit]:
             code = str(item.get("Code", "")).upper()
             exchange = str(item.get("Exchange", "")).upper()
-            ticker = _normalize_cn_ticker(code, exchange)
-            if not ticker and exchange in ("SHG", "SHE", "HK"):
-                continue
+            ticker = _normalize_ticker(code, exchange)
             if not ticker:
                 continue
             out.append({
@@ -782,13 +851,18 @@ def _search_cached_fundamentals(query: str, limit: int) -> list[dict]:
     ].head(limit)
     out = []
     for _, row in candidates.iterrows():
-        if row.get("market") == "HK":
-            ticker = f"{str(row['code']).zfill(5)}.HK"
+        market = row.get("market")
+        code = str(row["code"])
+        if market == "HK":
+            ticker = f"{code.zfill(5)}.HK"
             exchange = "HK"
+        elif market == "US":
+            ticker = f"{code.upper()}.US"
+            exchange = "US"
         else:
             # Best-effort: keep code, default SH if unknown — price layer will validate.
-            code = str(row["code"]).zfill(6)
-            ticker = f"{code}.SH"
+            code6 = code.zfill(6) if code.isdigit() else code
+            ticker = f"{code6}.SH"
             exchange = "SH"
         out.append({
             "ticker": ticker,
@@ -818,7 +892,7 @@ def _search_basket_names(query: str, limit: int) -> list[dict]:
                 out.append({
                     "ticker": c.ticker,
                     "name": c.name,
-                    "exchange": c.ticker.split(".")[-1],
+                    "exchange": c.ticker.rsplit(".", 1)[-1],
                     "type": "basket",
                     "source": "basket-yaml",
                 })
@@ -828,12 +902,12 @@ def _search_basket_names(query: str, limit: int) -> list[dict]:
 
 
 def search_tickers(query: str, limit: int = 12) -> list[dict]:
-    """Dynamic multi-source ticker search for A-shares and HK.
+    """Dynamic multi-source ticker search for A-shares, HK, and US.
 
     Priority:
-      1. Direct code (09992 / 09992.HK / 002594.SZ)
-      2. EODHD exchange symbol lists (HK/SHG/SHE) — reliable for HK names
-      3. EODHD free-text /search API (often weak for HK)
+      1. Direct code (09992 / 09992.HK / 002594.SZ / TCOM / TCOM.US)
+      2. EODHD exchange symbol lists (HK/SHG/SHE/US) — reliable for HK & US names
+      3. EODHD free-text /search API
       4. Names already in basket YAML
       5. Cached fundamentals parquet
     """

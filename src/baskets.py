@@ -36,7 +36,7 @@ def seed_baskets() -> None:
 
 @dataclass
 class Constituent:
-    ticker: str  # e.g. 600900.SH / 000333.SZ / 09992.HK
+    ticker: str  # e.g. 600900.SH / 000333.SZ / 09992.HK / TCOM.US
     name: str
     weight: float | None = 1.0  # 1 = equal-weight unit; normalized in Basket.weights
     note: str = ""
@@ -44,7 +44,7 @@ class Constituent:
     @property
     def market(self) -> str:
         suffix = self.ticker.rsplit(".", 1)[-1].upper()
-        return {"SH": "A", "SZ": "A", "BJ": "A", "HK": "HK"}.get(suffix, "?")
+        return {"SH": "A", "SZ": "A", "BJ": "A", "HK": "HK", "US": "US"}.get(suffix, "?")
 
 
 @dataclass

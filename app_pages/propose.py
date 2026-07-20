@@ -54,16 +54,16 @@ newsletter = st.text_input("Related newsletter URL (optional)")
 
 st.markdown("### 2 · Add constituents")
 st.caption(
-    "Search tries, in order: direct code → EODHD HK/A symbol lists → EODHD search API → "
+    "Search tries, in order: direct code → EODHD HK/A/US symbol lists → EODHD search API → "
     "basket YAML names → local fundamentals cache. "
-    "HK stocks (e.g. Pop Mart) resolve via the EODHD exchange list / code; "
-    "price history + Fwd PE / PEG come from EODHD, PE/PB from Baidu via akshare."
+    "HK (e.g. Pop Mart) and US / China ADRs (e.g. TCOM) resolve via EODHD; "
+    "price history + Fwd PE / PEG come from EODHD, PE/PB from Baidu via akshare (A/HK)."
 )
 search_col, btn_col = st.columns([4, 1])
 with search_col:
     query = st.text_input(
         "Search by ticker or company name",
-        placeholder="e.g. Pop Mart, 09992, BYD, 002594",
+        placeholder="e.g. Pop Mart, 09992, BYD, TCOM, 002594",
         label_visibility="collapsed",
     )
 with btn_col:
