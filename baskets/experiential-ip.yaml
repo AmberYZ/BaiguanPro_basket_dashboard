@@ -57,3 +57,7 @@ constituents:
   name: 携程
   weight: 1.0
   note: OTA/旅行
+- ticker: 01896.HK
+  name: Maoyan Entertainment
+  weight: 1.0
+  note: ''
