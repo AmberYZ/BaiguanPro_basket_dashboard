@@ -61,7 +61,6 @@ class Basket:
     benchmarks: list[str] = field(default_factory=lambda: ["CSI300"])
     newsletters: list[dict] = field(default_factory=list)
     watchpoints: list[str] = field(default_factory=list)
-    team_charts: list[str] = field(default_factory=list)
 
     @property
     def weights(self) -> dict[str, float]:
@@ -162,7 +161,6 @@ def basket_to_dict(basket: Basket) -> dict:
         "benchmarks": basket.benchmarks,
         "newsletters": basket.newsletters,
         "watchpoints": basket.watchpoints,
-        "team_charts": basket.team_charts,
         "constituents": [
             {
                 "ticker": c.ticker,

@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.analytics import basket_index, excess_vs_benchmark, perf_stats  # noqa: E402
+from src.analytics import (  # noqa: E402
+    basket_index, basket_index_for_stats, excess_vs_benchmark, perf_stats,
+)
 from src.baskets import load_baskets  # noqa: E402
 from src.data import BENCHMARKS, cache_age, load_fundamentals, load_price  # noqa: E402
 from src.ui import admin_line  # noqa: E402
@@ -26,8 +28,16 @@ def get_baskets():
 
 @st.cache_data(ttl=300)
 def get_basket_index(basket_id: str):
+    """Index from basket inception (formal tracking window)."""
     baskets = {b.id: b for b in load_baskets()}
     return basket_index(baskets[basket_id])
+
+
+@st.cache_data(ttl=300)
+def get_basket_index_stats(basket_id: str):
+    """Longer lookback index so 1W/1M/3M/YTD work for newly created baskets."""
+    baskets = {b.id: b for b in load_baskets()}
+    return basket_index_for_stats(baskets[basket_id])
 
 
 @st.cache_data(ttl=300)
@@ -58,13 +68,18 @@ def market_asof(keys: list[str] | None = None) -> str:
 def basket_summary_rows() -> pd.DataFrame:
     rows = []
     for b in get_baskets():
-        idx = get_basket_index(b.id)
-        stats = perf_stats(idx) if idx is not None else {}
+        idx = get_basket_index_stats(b.id)
+        stats = (
+            perf_stats(idx, inception=b.inception) if idx is not None else {}
+        )
         excess = None
         if idx is not None:
             bench = get_price(UNIVERSAL_BENCHMARKS[0])
             if bench is not None:
-                excess = excess_vs_benchmark(idx, bench)
+                # Excess since formal inception, not the stats lookback start.
+                since = idx[idx.index >= pd.Timestamp(b.inception)]
+                if since is not None and len(since) >= 2:
+                    excess = excess_vs_benchmark(since, bench)
         rows.append({
             "Basket": b.name,
             "1W": stats.get("ret_1w"),

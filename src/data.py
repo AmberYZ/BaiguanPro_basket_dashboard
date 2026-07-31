@@ -46,7 +46,8 @@ DATA_DIR = Path(os.environ.get("DATA_DIR") or (Path(__file__).resolve().parent.p
 PRICES_DIR = DATA_DIR / "prices"
 FUNDAMENTALS_PATH = DATA_DIR / "fundamentals.parquet"
 
-START_DATE = "2023-01-01"
+# Long enough for ~5y trailing-PE reconstruction (price ÷ TTM EPS).
+START_DATE = "2020-01-01"
 
 
 def _load_dotenv() -> None:

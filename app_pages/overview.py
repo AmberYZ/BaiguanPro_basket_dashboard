@@ -3,14 +3,20 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app_pages._shared import (basket_summary_rows, cache_banner,
-                               get_basket_index, get_baskets, get_price,
-                               UNIVERSAL_BENCHMARKS)
+                               get_basket_index, get_basket_index_stats,
+                               get_baskets, get_price, UNIVERSAL_BENCHMARKS)
 from src.analytics import basket_index, perf_stats, rebase
 from src.auth import with_auth
 from src.baskets import load_baskets
 from src.data import fundamentals_for
-from src.ui import (BLUE, GREEN, RED, market_table, performance_strip,
-                    plotly_layout, share_button, tag_filter)
+from src.insights import (basket_breadth, contribution_attribution,
+                          format_attribution_line, format_breadth_line,
+                          triage_baskets)
+from src.ui import (BLUE, PERIOD_COLORS, insight_line, market_table,
+                    performance_strip, plotly_layout, share_button,
+                    sort_controls, tag_filter, triage_panel, valuation_strip)
+from src.valuation import (basket_valuation, fwd_pe_vs_ytd_scatter,
+                           return_drawdown_heatmap, richness_label, ytd_drawdown)
 
 RANGES = {"3M": 91, "6M": 183, "YTD": "ytd", "1Y": 365, "2Y": 730,
           "3Y": 1095, "5Y": 1825}
@@ -25,20 +31,19 @@ def range_start(end: pd.Timestamp, choice: str) -> pd.Timestamp:
 
 def open_basket(basket_id: str) -> None:
     st.session_state["selected_basket_id"] = basket_id
-    # Bump nonce so Plotly selection state is not restored when we return.
     st.session_state["chart_nav_nonce"] = st.session_state.get("chart_nav_nonce", 0) + 1
     st.query_params["basket"] = basket_id
     st.switch_page("app_pages/basket_detail.py")
 
 
-def relative_performance_chart(frame: pd.DataFrame) -> go.Figure:
-    """One row per basket/benchmark: YTD primary (sort key) with paired 3M bar.
-
-    Baskets keep green/red YTD bars; benchmarks use blue (hatched) so they read
-    as references in the same ranking. Click customdata is basket id for baskets
-    and the benchmark key for benchmarks (ignored by maybe_open_from_chart).
-    """
-    ranked = frame[["Basket", "YTD", "3M", "_id"]].dropna(subset=["YTD"]).copy()
+def relative_performance_chart(
+    frame: pd.DataFrame,
+    *,
+    sort_by: str = "YTD",
+    ascending: bool = False,
+) -> go.Figure:
+    """One row per basket/benchmark: YTD / 3M / 1M with fixed period colors."""
+    ranked = frame[["Basket", "YTD", "3M", "1M", "_id"]].copy()
     ranked["_kind"] = "basket"
 
     bm_rows = []
@@ -54,61 +59,42 @@ def relative_performance_chart(frame: pd.DataFrame) -> go.Figure:
             "Basket": bm,
             "YTD": ytd,
             "3M": stats.get("ret_3m"),
+            "1M": stats.get("ret_1m"),
             "_id": bm,
             "_kind": "benchmark",
         })
     if bm_rows:
         ranked = pd.concat([ranked, pd.DataFrame(bm_rows)], ignore_index=True)
 
-    ranked = ranked.sort_values("YTD")
-    ytd_colors = [
-        (BLUE if v >= 0 else "rgba(94,160,255,0.55)")
-        if kind == "benchmark"
-        else (GREEN if v >= 0 else RED)
-        for kind, v in zip(ranked["_kind"], ranked["YTD"])
-    ]
-    m3_colors = [
-        "rgba(94,160,255,0.28)" if kind == "benchmark" else "rgba(148,163,184,0.45)"
-        for kind in ranked["_kind"]
-    ]
+    col = sort_by if sort_by in ranked.columns else "YTD"
+    ranked = ranked.sort_values(col, ascending=ascending, na_position="first")
     patterns = ["/" if kind == "benchmark" else "" for kind in ranked["_kind"]]
     hover_kind = [
         "Benchmark" if kind == "benchmark" else "Basket"
         for kind in ranked["_kind"]
     ]
-    # [id, kind-label] so clicks still resolve to id; hover shows basket vs benchmark.
     custom = list(zip(ranked["_id"], hover_kind))
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=ranked["Basket"],
-        x=ranked["YTD"],
-        name="YTD",
-        orientation="h",
-        customdata=custom,
-        marker=dict(color=ytd_colors, pattern_shape=patterns),
-        text=[f"{v:+.1%}" for v in ranked["YTD"]],
-        textposition="outside",
-        cliponaxis=False,
-        hovertemplate="%{customdata[1]} %{y}<br>YTD %{x:+.1%}<extra></extra>",
-    ))
-    fig.add_trace(go.Bar(
-        y=ranked["Basket"],
-        x=ranked["3M"],
-        name="3M",
-        orientation="h",
-        customdata=custom,
-        marker=dict(color=m3_colors, pattern_shape=patterns),
-        text=[f"{v:+.1%}" if pd.notna(v) else "—" for v in ranked["3M"]],
-        textposition="outside",
-        cliponaxis=False,
-        hovertemplate="%{customdata[1]} %{y}<br>3M %{x:+.1%}<extra></extra>",
-    ))
-    fig.add_vline(x=0, line_color="rgba(229,231,235,0.45)", line_width=1)
+    for period in ("YTD", "3M", "1M"):
+        fig.add_trace(go.Bar(
+            y=ranked["Basket"],
+            x=ranked[period],
+            name=period,
+            orientation="h",
+            customdata=custom,
+            marker=dict(color=PERIOD_COLORS[period], pattern_shape=patterns),
+            text=[f"{v:+.1%}" if pd.notna(v) else "—" for v in ranked[period]],
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate="%{customdata[1]} %{y}<br>" + period + " %{x:+.1%}<extra></extra>",
+        ))
+    fig.add_vline(x=0, line_color="rgba(28,36,48,0.25)", line_width=1)
     fig.update_xaxes(tickformat="+.0%", title=None, automargin=True)
     fig.update_yaxes(title=None, automargin=True)
+    direction = "low→high" if ascending else "high→low"
     fig.update_layout(
-        title="Relative performance — sorted by YTD (click a basket to open)",
+        title=f"Relative performance — sorted by {col} ({direction})",
         barmode="group",
         bargap=0.28,
         bargroupgap=0.12,
@@ -118,6 +104,35 @@ def relative_performance_chart(frame: pd.DataFrame) -> go.Figure:
     )
     plotly_layout(fig, height=max(340, 90 + len(ranked) * 58))
     return fig
+
+
+def valuation_overview_rows(baskets, summary: pd.DataFrame) -> pd.DataFrame:
+    """Per-basket valuation + return fields for homepage scatter / heatmap."""
+    rows = []
+    for b in baskets:
+        stats_row = summary[summary["_id"] == b.id]
+        if stats_row.empty:
+            continue
+        stats_row = stats_row.iloc[0]
+        tickers = [c.ticker for c in b.constituents]
+        val = basket_valuation(tickers)
+        idx = get_basket_index_stats(b.id)
+        rows.append({
+            "Basket": b.name,
+            "_id": b.id,
+            "YTD": stats_row["YTD"],
+            "1M": stats_row["1M"],
+            "3M": stats_row["3M"],
+            "DD vs YTD peak": ytd_drawdown(idx) if idx is not None else None,
+            "avg_fwd_pe": val["avg_fwd_pe"],
+            "avg_trail_pe": val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+            "pe_5y_mean": val.get("pe_5y_mean"),
+            "avg_peg": val["avg_peg"],
+            "pe_5y_median": val["pe_5y_median"],
+            "fwd_vs_5y_trail_pctile": val["fwd_vs_5y_trail_pctile"],
+            "fwd_vs_5y_median_premium": val["fwd_vs_5y_median_premium"],
+        })
+    return pd.DataFrame(rows)
 
 
 def maybe_open_from_chart(event, *, fallback_id: str | None = None) -> None:
@@ -140,6 +155,8 @@ def maybe_open_from_chart(event, *, fallback_id: str | None = None) -> None:
     custom = point.get("customdata")
     if custom is not None:
         basket_id = custom[0] if isinstance(custom, (list, tuple)) else custom
+        if isinstance(custom, (list, tuple)) and len(custom) >= 4:
+            basket_id = custom[3]
     if not basket_id:
         basket_id = fallback_id
     if basket_id and basket_id not in UNIVERSAL_BENCHMARKS:
@@ -176,7 +193,12 @@ basket_links = {
 }
 
 pct_cols = ["1W", "1M", "3M", "YTD", "1Y", "Since Inception", "Excess vs CSI300", "Max DD"]
-st.caption("Click a basket name to open its detail page.")
+st.caption(
+    "Click a basket name to open its detail page. "
+    "1W / 1M / 3M / YTD / 1Y always use equal-weight constituent lookback "
+    "(ignore when the basket was created). "
+    "Since Inception / Excess / Max DD / Sharpe use the formal inception date."
+)
 market_table(
     df.drop(columns=["_id", "_tags"]),
     pct_cols=pct_cols,
@@ -187,9 +209,19 @@ market_table(
         "Max DD": "Maximum drawdown since inception (largest peak-to-trough decline).",
         "Sharpe": "Since inception: annualized daily return / annualized volatility (no risk-free rate).",
         "Since Inception": "Total return from the basket's inception date.",
-        "1Y": "Trailing 12-month return; blank when the basket is younger than one year.",
+        "1Y": "Trailing 12-month return of equal-weight constituents (lookback), blank if price history is shorter.",
+        "1M": "Trailing 1-month return of equal-weight constituents (not limited to inception).",
+        "3M": "Trailing 3-month return of equal-weight constituents (not limited to inception).",
     },
 )
+
+val_rows = valuation_overview_rows(baskets, df)
+triage = triage_baskets(val_rows)
+st.caption(
+    "Opportunity ≈ washed out + not rich · Risk ≈ rich + still near highs / hot YTD. "
+    "Simple rules — not a signal."
+)
+triage_panel(triage["opportunities"], triage["risks"])
 
 st.subheader("Performance")
 range_choice = st.segmented_control(
@@ -200,7 +232,7 @@ fig = go.Figure()
 basket_objs = {b.id: b for b in load_baskets()}
 ends = []
 for b in baskets:
-    idx0 = get_basket_index(b.id)
+    idx0 = get_basket_index_stats(b.id)
     if idx0 is not None and not idx0.empty:
         ends.append(idx0.index[-1])
 for bm in UNIVERSAL_BENCHMARKS:
@@ -218,7 +250,6 @@ else:
         obj = basket_objs.get(b.id)
         if obj is None:
             continue
-        # Rebuild from the selected start so the line opens at 100 with benchmarks.
         idx = basket_index(obj, start=start)
         if idx is None or idx.empty:
             continue
@@ -259,12 +290,49 @@ else:
     )
 
 st.subheader("Relative performance")
-st.caption("Baskets and benchmarks (CSI300 / SPX / NDX) sorted by YTD. Grey basket / blue hatched benchmark bars; 3M is the paired secondary. Click a basket to open detail.")
+st.caption(
+    "YTD / 3M / 1M share one fixed color each across baskets and benchmarks "
+    "(benchmarks are hatched). Click a period to sort; click again to flip direction."
+)
+rel_sort, rel_asc = sort_controls(
+    ["YTD", "3M", "1M"], key="rel_sort", default="YTD",
+)
 event_rel = st.plotly_chart(
-    relative_performance_chart(df), width="stretch",
+    relative_performance_chart(df, sort_by=rel_sort, ascending=rel_asc),
+    width="stretch",
     key=f"rank_rel_{nav_nonce}", on_select="rerun", selection_mode="points",
 )
 maybe_open_from_chart(event_rel)
+
+if not val_rows.empty:
+    st.subheader("Valuation vs returns")
+    st.caption(
+        "X = Forward PE level · Y = YTD return · color = 已回调 vs YTD peak "
+        "(red = deep washout, teal = still near highs). "
+        "Valuation richness vs own history is on each basket's valuation strip."
+    )
+    scatter_data = val_rows.dropna(subset=["avg_fwd_pe", "YTD"])
+    if not scatter_data.empty:
+        event_sc = st.plotly_chart(
+            fwd_pe_vs_ytd_scatter(scatter_data), width="stretch",
+            key=f"fwd_ytd_{nav_nonce}", on_select="rerun", selection_mode="points",
+        )
+        maybe_open_from_chart(event_sc)
+
+    heat_data = val_rows.copy()
+    if not heat_data.empty:
+        st.markdown("##### Return / drawdown heatmap")
+        heat_sort, heat_asc = sort_controls(
+            ["1M", "3M", "YTD", "DD vs YTD peak"],
+            key="heat_sort", default="YTD",
+        )
+        st.plotly_chart(
+            return_drawdown_heatmap(
+                heat_data.sort_values(heat_sort, ascending=heat_asc, na_position="last")
+            ),
+            width="stretch",
+            key=f"heat_{nav_nonce}",
+        )
 
 st.subheader("Many charts")
 many_range = st.segmented_control(
@@ -277,7 +345,6 @@ for row in range(0, len(baskets), 2):
     for col, b in zip(cols, baskets[row:row + 2]):
         with col:
             with st.container(border=True):
-                idx = get_basket_index(b.id)
                 stats_row = df[df["_id"] == b.id].iloc[0]
                 title_col, open_col = st.columns([5, 1])
                 with title_col:
@@ -292,6 +359,22 @@ for row in range(0, len(baskets), 2):
                 performance_strip(
                     [("1M", stats_row["1M"]), ("3M", stats_row["3M"]),
                      ("YTD", stats_row["YTD"]), ("1Y", stats_row["1Y"])]
+                )
+                tickers = [c.ticker for c in b.constituents]
+                val = basket_valuation(tickers)
+                label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
+                idx_stats = get_basket_index_stats(b.id)
+                valuation_strip(
+                    val.get("avg_fwd_pe"),
+                    val.get("pe_5y_mean"),
+                    val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+                    conclusion=label,
+                    conclusion_key=chip,
+                    drawdown=ytd_drawdown(idx_stats) if idx_stats is not None else None,
+                )
+                insight_line(
+                    format_breadth_line(basket_breadth(b)),
+                    format_attribution_line(contribution_attribution(b, days=30, top_n=2)),
                 )
                 mini = go.Figure()
                 mini_end = latest if ends else pd.Timestamp.today()
@@ -325,7 +408,6 @@ for row in range(0, len(baskets), 2):
                 )
                 maybe_open_from_chart(card_event, fallback_id=b.id)
 
-                tickers = [c.ticker for c in b.constituents]
                 fund = fundamentals_for(tickers)
                 rows = []
                 for c in b.constituents:
@@ -354,4 +436,7 @@ for row in range(0, len(baskets), 2):
                     compact=True,
                 )
 
-st.caption("Basket indices are buy-and-hold, fixed at inception, price return only for now.")
+st.caption(
+    "Period returns use equal-weight constituent lookback. "
+    "Formal inception still anchors Since Inception / Max DD / Sharpe."
+)

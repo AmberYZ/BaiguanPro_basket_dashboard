@@ -15,7 +15,6 @@ newsletters: []
 watchpoints:
 - SOFC（固体氧化物燃料电池）落地情况
 - AI Datacenter整体build-out，是否有放缓迹象，缺电迹象是否持续，是否依然依赖备用能源以及种类是否有变化
-team_charts: []
 constituents:
 - ticker: 000338.SZ
   name: Weichai Power Co Ltd Class A

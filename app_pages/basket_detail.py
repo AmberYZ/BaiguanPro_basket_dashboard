@@ -3,15 +3,19 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app_pages._shared import (STATUS_BADGE, cache_banner, get_basket_index,
-                               get_baskets, get_price, UNIVERSAL_BENCHMARKS)
-from src.analytics import component_indices, fmt_pct, perf_stats, rebase
+                               get_basket_index_stats, get_baskets, get_price,
+                               UNIVERSAL_BENCHMARKS)
+from src.analytics import component_indices, perf_stats, rebase
 from src.auth import flash_success
 from src.baskets import delete_basket, update_basket_fields
-from src.chart_registry import (chart_description, chart_title, load_chart_modules,
-                                render_chart)
 from src.data import fundamentals_for, merge_basket_news, quote_snapshot, search_tickers
-from src.ui import (BLUE, internal_badge, internal_heading, market_table,
-                    metric_grid, news_feed, plotly_layout, share_button, tag_filter)
+from src.insights import (basket_breadth, contribution_attribution,
+                          format_attribution_line, format_breadth_line)
+from src.ui import (BLUE, insight_line, internal_badge, internal_heading, market_table,
+                    metric_grid, news_feed, plotly_layout, share_button, tag_filter,
+                    valuation_strip)
+from src.valuation import (basket_valuation, basket_valuation_figure,
+                           richness_label, ytd_drawdown)
 
 baskets = {b.id: b for b in get_baskets()}
 if not baskets:
@@ -67,12 +71,13 @@ with right:
         st.caption("No linked newsletter yet.")
 
 idx = get_basket_index(b.id)
+idx_stats = get_basket_index_stats(b.id)
 
 st.markdown("#### Performance vs benchmarks")
-if idx is None or idx.empty:
+if idx_stats is None or idx_stats.empty:
     st.warning("No cached price data for this basket yet — run an update on the Data & Update page.")
 else:
-    stats = perf_stats(idx)
+    stats = perf_stats(idx_stats, inception=b.inception)
     metric_grid([
         ("1W", stats.get("ret_1w"), "pct"),
         ("1M", stats.get("ret_1m"), "pct"),
@@ -83,32 +88,37 @@ else:
         ("Sharpe", stats.get("sharpe"), "ratio"),
         ("Max DD", stats.get("max_dd"), "pct"),
     ])
+    st.caption(
+        "1W / 1M / 3M / YTD / 1Y = constituent lookback (not limited by inception). "
+        "Since / Sharpe / Max DD = from formal inception."
+    )
 
     chart_mode = st.radio(
         "Price chart",
         ["Basket vs universal benchmarks", "Show basket components"],
         horizontal=True,
     )
+    chart_idx = idx if idx is not None and not idx.empty else idx_stats
     fig = go.Figure()
     if chart_mode.startswith("Basket"):
-        fig.add_trace(go.Scatter(x=idx.index, y=idx.values, name=b.name, mode="lines",
+        fig.add_trace(go.Scatter(x=chart_idx.index, y=chart_idx.values, name=b.name, mode="lines",
                                  line=dict(width=3, color=BLUE)))
         for bm in UNIVERSAL_BENCHMARKS:
             s = get_price(bm)
             if s is None:
                 continue
-            r = rebase(s, idx.index[0])
+            r = rebase(s, chart_idx.index[0])
             if r is not None:
                 fig.add_trace(go.Scatter(x=r.index, y=r.values, name=bm, mode="lines",
                                          line=dict(dash="dash", width=1.6)))
     else:
-        fig.add_trace(go.Scatter(x=idx.index, y=idx.values, name=b.name,
+        fig.add_trace(go.Scatter(x=chart_idx.index, y=chart_idx.values, name=b.name,
                                  mode="lines", line=dict(width=3, color=BLUE)))
         for bm in UNIVERSAL_BENCHMARKS:
             s = get_price(bm)
             if s is None:
                 continue
-            r = rebase(s, idx.index[0])
+            r = rebase(s, chart_idx.index[0])
             if r is not None:
                 fig.add_trace(go.Scatter(x=r.index, y=r.values, name=bm,
                                          mode="lines",
@@ -176,6 +186,68 @@ market_table(
 )
 st.caption("EPS Gr. (1Y) = EODHD consensus forward EPS growth (+1y). No multi-year CAGR field.")
 
+st.markdown("#### Valuation")
+st.caption(
+    "Current Forward PE from EODHD Fundamentals. 5y context uses reconstructed "
+    "Trailing PE (month-end price ÷ TTM EPS, Baidu fallback). Fwd %ile = where today's "
+    "Forward PE sits in that trail-PE distribution (high = expensive vs own history)."
+)
+val = basket_valuation(tickers)
+label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
+dd = ytd_drawdown(idx_stats) if idx_stats is not None else None
+valuation_strip(
+    val.get("avg_fwd_pe"),
+    val.get("pe_5y_mean"),
+    val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+    conclusion=label,
+    conclusion_key=chip,
+    drawdown=dd,
+)
+insight_line(
+    format_breadth_line(basket_breadth(b)),
+    format_attribution_line(contribution_attribution(b, days=30, top_n=2)),
+)
+
+def _fmt_pe(v, digits=1):
+    return f"{v:.{digits}f}" if v is not None and pd.notna(v) else "—"
+
+def _fmt_pctile(v):
+    return f"{v:.0f}" if v is not None and pd.notna(v) else "—"
+
+def _fmt_prem(v):
+    return f"{v:+.0%}" if v is not None and pd.notna(v) else "—"
+
+kpi_cols = st.columns(4)
+kpi_cols[0].metric("Avg PEG", _fmt_pe(val.get("avg_peg"), 2))
+kpi_cols[1].metric("5y Trail med", _fmt_pe(val.get("pe_5y_median")))
+kpi_cols[2].metric("Fwd vs 5y med", _fmt_prem(val.get("fwd_vs_5y_median_premium")))
+kpi_cols[3].metric("Fwd %ile", _fmt_pctile(val.get("fwd_vs_5y_trail_pctile")))
+
+pe_hist = val.get("pe_hist")
+has_pe = pe_hist is not None and not getattr(pe_hist, "empty", True)
+val_chart_idx = idx_stats if idx_stats is not None and not idx_stats.empty else idx
+if val_chart_idx is not None and not val_chart_idx.empty and has_pe:
+    st.plotly_chart(
+        basket_valuation_figure(
+            val_chart_idx,
+            pe_hist,
+            avg_fwd_pe=val.get("avg_fwd_pe"),
+            avg_trail_pe=val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+            stats=val,
+        ),
+        width="stretch",
+    )
+    st.caption(
+        "左图：从今年高点回撤了多少（峰值=100）。"
+        "中图：5年 Trailing PE 轨迹；橙带=25–75分位，橙虚线=中位数，红钻=今日 Forward PE。"
+        "右图：今日 Fwd/Trail 落在5年 Trail PE 区间的位置。"
+    )
+elif not has_pe:
+    st.info(
+        "Trailing PE history not cached yet — run **Data & Update** "
+        "(or `update_data.py`) to fetch earnings history and rebuild PE paths."
+    )
+
 st.markdown("#### Constituent news")
 news_count_key = f"news_count_{b.id}"
 news_cache_key = f"news_cache_{b.id}"
@@ -192,21 +264,6 @@ if shown < len(cached_news):
     if st.button(f"Show more ({len(cached_news) - shown} left)", key=f"more_news_{b.id}"):
         st.session_state[news_count_key] = min(shown + 8, len(cached_news))
         st.rerun()
-
-chart_modules = load_chart_modules()
-chart_options = {chart_title(mod): slug for slug, mod in chart_modules}
-attached = [(slug, mod) for slug, mod in chart_modules if slug in b.team_charts]
-if attached:
-    st.markdown("#### Team charts for this basket")
-    cols = st.columns(2)
-    for i, (_, mod) in enumerate(attached):
-        with cols[i % 2]:
-            with st.container(border=True):
-                st.markdown(f"##### {chart_title(mod)}")
-                desc = chart_description(mod)
-                if desc:
-                    st.caption(desc)
-                render_chart(mod, basket=b, compact=True)
 
 with st.expander("Constituent rationale", expanded=False):
     st.caption("These notes come from each constituent's rationale field in the basket definition.")
@@ -237,13 +294,13 @@ if st.button("Save watchpoints", type="primary"):
     st.rerun()
 
 st.divider()
-with st.expander("Internal — edit tags, newsletters, charts, definition", expanded=False):
+with st.expander("Internal — edit tags, newsletters, definition", expanded=False):
     internal_badge(
-        "Approve proposals, edit tags / newsletters / team charts / definition, or delete."
+        "Approve proposals, edit tags / newsletters / definition, or delete."
     )
     st.caption(
         "Any teammate with the password can activate a proposal. "
-        "Tags, newsletters, team charts, and basket definition are editable below."
+        "Tags, newsletters, and basket definition are editable below."
     )
     if b.status == "proposed":
         if st.button("Approve and activate basket", type="primary"):
@@ -283,17 +340,7 @@ with st.expander("Internal — edit tags, newsletters, charts, definition", expa
         },
     )
 
-    internal_heading("Attach team charts to this basket")
-    saved_titles = [title for title, slug in chart_options.items() if slug in b.team_charts]
-    selected_titles = st.multiselect(
-        "Attach team charts to this basket",
-        list(chart_options),
-        default=saved_titles,
-        key=f"edit_charts_{b.id}",
-        label_visibility="collapsed",
-    )
-
-    if st.button("Save tags, newsletters & charts", type="primary", key=f"save_meta_{b.id}"):
+    if st.button("Save tags & newsletters", type="primary", key=f"save_meta_{b.id}"):
         newsletters = []
         frame = edited_nl if isinstance(edited_nl, pd.DataFrame) else pd.DataFrame(edited_nl)
         for row in frame.to_dict("records"):
@@ -310,11 +357,10 @@ with st.expander("Internal — edit tags, newsletters, charts, definition", expa
             {
                 "tags": edit_tags,
                 "newsletters": newsletters,
-                "team_charts": [chart_options[t] for t in selected_titles],
             },
         )
         st.cache_data.clear()
-        flash_success("Tags, newsletters, and team charts saved.")
+        flash_success("Tags and newsletters saved.")
         st.rerun()
 
     st.divider()

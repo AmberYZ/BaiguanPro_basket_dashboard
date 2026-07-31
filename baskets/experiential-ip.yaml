@@ -18,8 +18,6 @@ benchmarks:
 - HSI
 newsletters: []
 watchpoints: []
-team_charts:
-- basket_valuation_map
 constituents:
 - ticker: 09992.HK
   name: 泡泡玛特 Pop Mart

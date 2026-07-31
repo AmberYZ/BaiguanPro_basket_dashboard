@@ -9,14 +9,25 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-GREEN = "#20C997"
-RED = "#FF5C77"
-MUTED = "#9CA3AF"
-BLUE = "#5EA0FF"
-ORANGE = "#F59E0B"
-GRID = "rgba(148, 163, 184, 0.16)"
-PAPER = "#080B12"
-CARD = "#111827"
+GREEN = "#0F8A5F"
+RED = "#C0392B"
+MUTED = "#6B7280"
+BLUE = "#1D6FBF"
+ORANGE = "#C47A2C"
+PURPLE = "#7C3AED"
+GRID = "rgba(28, 36, 48, 0.08)"
+PAPER = "#F4F6F8"
+CARD = "#FFFFFF"
+INK = "#1C2430"
+
+# Fixed period palette — same color for every ticker / basket / benchmark.
+PERIOD_COLORS = {
+    "YTD": BLUE,
+    "3M": ORANGE,
+    "1M": PURPLE,
+    "1W": GREEN,
+    "1Y": "#BE185D",
+}
 
 
 def apply_theme() -> None:
@@ -25,49 +36,53 @@ def apply_theme() -> None:
         <style>
         .stApp {
           background:
-            radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 34rem),
-            radial-gradient(circle at top right, rgba(20, 184, 166, 0.10), transparent 30rem),
-            #080B12;
+            radial-gradient(ellipse 70% 45% at 8% -8%, #dfece8 0%, transparent 55%),
+            radial-gradient(ellipse 55% 40% at 100% 0%, #e8eef5 0%, transparent 50%),
+            #F4F6F8;
+          color: #1C2430;
         }
-        h1, h2, h3 { letter-spacing: -0.03em; }
+        h1, h2, h3 { letter-spacing: -0.03em; color: #1C2430; }
         div[data-testid="stMetric"] {
-          background: linear-gradient(180deg, rgba(17,24,39,0.96), rgba(12,18,31,0.96));
-          border: 1px solid rgba(148,163,184,0.16);
+          background: #FFFFFF;
+          border: 1px solid #D9DEE7;
           border-radius: 14px;
           padding: 14px 16px;
-          box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+          box-shadow: 0 1px 2px rgba(28,36,48,0.04);
         }
         div[data-testid="stMetricValue"] {
           font-size: 1.25rem;
           font-weight: 700;
+          color: #1C2430;
         }
         div[data-testid="stDataFrame"] {
-          border: 1px solid rgba(148,163,184,0.16);
+          border: 1px solid #D9DEE7;
           border-radius: 14px;
           overflow: hidden;
+          background: #FFFFFF;
         }
         .baiguan-card {
-          background: linear-gradient(180deg, rgba(17,24,39,0.98), rgba(9,13,23,0.98));
-          border: 1px solid rgba(148,163,184,0.16);
+          background: #FFFFFF;
+          border: 1px solid #D9DEE7;
           border-radius: 16px;
           padding: 16px;
           margin-bottom: 16px;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+          box-shadow: 0 1px 3px rgba(28,36,48,0.05);
         }
         .baiguan-card-title {
           font-size: 1.05rem;
           font-weight: 720;
           margin-bottom: 4px;
+          color: #1C2430;
         }
-        .muted { color: #9CA3AF; }
-        .up { color: #20C997; font-weight: 650; }
-        .down { color: #FF5C77; font-weight: 650; }
-        .flat { color: #9CA3AF; font-weight: 650; }
+        .muted { color: #6B7280; }
+        .up { color: #0F8A5F; font-weight: 650; }
+        .down { color: #C0392B; font-weight: 650; }
+        .flat { color: #6B7280; font-weight: 650; }
         .pill {
           display: inline-block;
-          border: 1px solid rgba(94,160,255,0.38);
-          background: rgba(94,160,255,0.12);
-          color: #BFDBFE;
+          border: 1px solid #C5D4E8;
+          background: #EEF4FB;
+          color: #1D4F8C;
           padding: 4px 9px;
           border-radius: 999px;
           font-size: 0.78rem;
@@ -75,9 +90,9 @@ def apply_theme() -> None:
         }
         .market-table-wrap {
           overflow-x: auto;
-          border: 1px solid rgba(148,163,184,0.16);
+          border: 1px solid #D9DEE7;
           border-radius: 14px;
-          background: rgba(9,13,23,0.76);
+          background: #FFFFFF;
         }
         .market-table-wrap.compact table.market-table {
           font-size: 0.7rem;
@@ -90,9 +105,9 @@ def apply_theme() -> None:
         }
         .internal-badge {
           display: inline-block;
-          border: 1px solid rgba(107,114,128,0.45);
-          background: rgba(107,114,128,0.12);
-          color: #9CA3AF;
+          border: 1px solid #D1D5DB;
+          background: #F3F4F6;
+          color: #6B7280;
           padding: 3px 10px;
           border-radius: 6px;
           font-size: 0.72rem;
@@ -108,7 +123,6 @@ def apply_theme() -> None:
           font-weight: 600;
           margin: 0.6rem 0 0.35rem;
         }
-        /* Fully-internal pages: soften default copy so it reads as backstage */
         .internal-page h1,
         .internal-page h2,
         .internal-page h3,
@@ -118,9 +132,9 @@ def apply_theme() -> None:
         .internal-page .stMarkdown,
         .internal-page [data-testid="stCaptionContainer"],
         .internal-page [data-testid="stWidgetLabel"] {
-          color: #9CA3AF !important;
+          color: #4B5563 !important;
         }
-        .internal-page h1 { color: #D1D5DB !important; }
+        .internal-page h1 { color: #1C2430 !important; }
         .tag-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
         .admin-line { color: #6B7280; font-size: 0.74rem; margin: -6px 0 10px; }
         table.market-table {
@@ -128,14 +142,16 @@ def apply_theme() -> None:
           width: 100%;
           min-width: 760px;
           font-size: 0.86rem;
+          color: #1C2430;
         }
         .market-table th {
-          color: #9CA3AF;
-          font-weight: 560;
+          color: #6B7280;
+          font-weight: 600;
           text-align: right;
           padding: 11px 12px;
-          border-bottom: 1px solid rgba(148,163,184,0.18);
+          border-bottom: 1px solid #E5E9F0;
           white-space: nowrap;
+          background: #F7F8FA;
         }
         .market-table-wrap.scroll {
           overflow-y: auto;
@@ -143,13 +159,13 @@ def apply_theme() -> None:
         .market-table-wrap.scroll thead th {
           position: sticky;
           top: 0;
-          background: #0c1220;
+          background: #F7F8FA;
           z-index: 1;
         }
         .market-table td {
           padding: 11px 12px;
           text-align: right;
-          border-bottom: 1px solid rgba(148,163,184,0.10);
+          border-bottom: 1px solid #EEF1F5;
           white-space: nowrap;
         }
         .market-table th:first-child, .market-table td:first-child,
@@ -157,10 +173,10 @@ def apply_theme() -> None:
           text-align: left;
         }
         .market-table tr:last-child td { border-bottom: 0; }
-        .market-table tr:hover td { background: rgba(94,160,255,0.055); }
+        .market-table tr:hover td { background: #F3F7FC; }
         .market-table th .col-tip {
           cursor: help;
-          border-bottom: 1px dotted rgba(156,163,175,0.55);
+          border-bottom: 1px dotted rgba(107,114,128,0.55);
           text-decoration: none;
         }
         .market-table th .col-tip::after {
@@ -173,15 +189,15 @@ def apply_theme() -> None:
           max-width: 18rem;
           padding: 8px 10px;
           border-radius: 8px;
-          background: #111827;
-          border: 1px solid rgba(148,163,184,0.28);
-          color: #E5E7EB;
+          background: #1C2430;
+          border: 1px solid #1C2430;
+          color: #F9FAFB;
           font-size: 0.72rem;
           font-weight: 500;
           line-height: 1.35;
           white-space: normal;
           text-align: left;
-          box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+          box-shadow: 0 10px 24px rgba(28,36,48,0.18);
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.12s ease;
@@ -195,52 +211,127 @@ def apply_theme() -> None:
           grid-template-columns: 4.5rem 1fr;
           gap: 10px;
           padding: 9px 0;
-          border-bottom: 1px solid rgba(148,163,184,0.10);
+          border-bottom: 1px solid #EEF1F5;
           align-items: baseline;
         }
         .news-item:last-child { border-bottom: 0; }
         .news-meta { color: #6B7280; font-size: 0.72rem; line-height: 1.3; }
         .news-title {
-          color: #E5E7EB;
+          color: #1C2430;
           font-size: 0.86rem;
           line-height: 1.35;
           text-decoration: none;
         }
-        .news-title:hover { color: #93C5FD; }
+        .news-title:hover { color: #1D6FBF; }
         .news-ticker {
-          color: #5EA0FF;
+          color: #1D6FBF;
           font-size: 0.72rem;
           font-weight: 650;
           margin-right: 6px;
         }
         .performance-strip {
           display: grid;
-          grid-template-columns: repeat(4, minmax(75px, 1fr));
-          gap: 8px;
-          margin: 8px 0 12px;
+          grid-template-columns: repeat(4, minmax(64px, 1fr));
+          gap: 6px;
+          margin: 6px 0 8px;
         }
         .performance-item {
-          border-left: 2px solid rgba(148,163,184,0.22);
-          padding-left: 9px;
+          border-left: 2px solid #D9DEE7;
+          padding-left: 8px;
         }
-        .performance-label { color: #9CA3AF; font-size: 0.72rem; }
-        .performance-value { font-size: 1.03rem; margin-top: 2px; }
+        .performance-label { color: #6B7280; font-size: 0.68rem; }
+        .performance-value { font-size: 0.95rem; margin-top: 1px; font-weight: 650; }
+        .valuation-strip {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1.15fr 0.9fr;
+          gap: 6px 10px;
+          margin: 2px 0 8px;
+          padding: 8px 10px;
+          background: #F7F8FA;
+          border: 1px solid #E5E9F0;
+          border-radius: 10px;
+          align-items: start;
+        }
+        .valuation-item .valuation-label {
+          color: #6B7280;
+          font-size: 0.65rem;
+          letter-spacing: 0.01em;
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+        .valuation-item .valuation-value {
+          color: #1C2430;
+          font-size: 0.92rem;
+          font-weight: 700;
+          margin-top: 2px;
+          line-height: 1.25;
+          white-space: nowrap;
+        }
+        .valuation-value.concl {
+          font-size: 0.82rem;
+          font-weight: 650;
+        }
+        .valuation-value.chip-cheap { color: #0F8A5F !important; }
+        .valuation-value.chip-fair { color: #C47A2C !important; }
+        .valuation-value.chip-rich { color: #C0392B !important; }
+        .valuation-value.chip-muted { color: #6B7280 !important; }
+        .valuation-value.neg { color: #C0392B !important; }
+        .valuation-value.pos { color: #0F8A5F !important; }
+        .triage-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin: 8px 0 16px;
+        }
+        .triage-col {
+          background: #FFFFFF;
+          border: 1px solid #D9DEE7;
+          border-radius: 12px;
+          padding: 10px 12px;
+        }
+        .triage-col.opp { border-left: 3px solid #0F8A5F; }
+        .triage-col.risk { border-left: 3px solid #C0392B; }
+        .triage-head {
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #6B7280;
+          margin-bottom: 6px;
+        }
+        .triage-item {
+          font-size: 0.82rem;
+          line-height: 1.35;
+          color: #1C2430;
+          margin: 4px 0;
+        }
+        .triage-item .why { color: #6B7280; }
+        .triage-empty { color: #9CA3AF; font-size: 0.8rem; }
+        .insight-line {
+          color: #4B5563;
+          font-size: 0.78rem;
+          line-height: 1.4;
+          margin: 2px 0 8px;
+        }
         .metric-grid {
           display: grid;
-          grid-template-columns: repeat(8, minmax(82px, 1fr));
-          gap: 9px;
-          margin: 8px 0 18px;
+          grid-template-columns: repeat(8, minmax(72px, 1fr));
+          gap: 8px;
+          margin: 6px 0 14px;
         }
         .metric-box {
-          background: linear-gradient(180deg, rgba(17,24,39,0.98), rgba(9,13,23,0.98));
-          border: 1px solid rgba(148,163,184,0.16);
-          border-radius: 12px;
-          padding: 13px 12px;
+          background: #FFFFFF;
+          border: 1px solid #D9DEE7;
+          border-radius: 10px;
+          padding: 10px 10px;
         }
-        .metric-label { color: #9CA3AF; font-size: 0.76rem; }
-        .metric-value { font-size: 1.28rem; font-weight: 730; margin-top: 5px; }
+        .metric-label { color: #6B7280; font-size: 0.7rem; }
+        .metric-value { font-size: 1.12rem; font-weight: 700; margin-top: 3px; color: #1C2430; }
         @media (max-width: 900px) {
           .metric-grid { grid-template-columns: repeat(4, 1fr); }
+          .valuation-strip {
+            grid-template-columns: repeat(3, 1fr);
+          }
         }
         </style>
         """,
@@ -250,23 +341,163 @@ def apply_theme() -> None:
 
 def plotly_layout(fig: go.Figure, height: int = 420) -> go.Figure:
     fig.update_layout(
-        template="plotly_dark",
+        template="plotly_white",
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         hovermode="x unified",
         margin=dict(l=24, r=18, t=24, b=24),
         legend=dict(orientation="h", y=-0.18),
-        font=dict(color="#E5E7EB"),
+        font=dict(color=INK, family="IBM Plex Sans, system-ui, sans-serif"),
         xaxis=dict(gridcolor=GRID, zerolinecolor=GRID),
         yaxis=dict(gridcolor=GRID, zerolinecolor=GRID),
     )
     return fig
 
 
+def valuation_strip(
+    avg_fwd_pe: float | None,
+    pe_5y_avg: float | None,
+    avg_trail_pe: float | None,
+    *,
+    conclusion: str | None = None,
+    conclusion_key: str = "muted",
+    drawdown: float | None = None,
+) -> None:
+    """Compact valuation strip: PE levels + richness conclusion + YTD drawdown."""
+
+    def _fmt(v: float | None, digits: int = 1) -> str:
+        if v is None or (isinstance(v, float) and not math.isfinite(v)) or pd.isna(v):
+            return "—"
+        return f"{float(v):.{digits}f}"
+
+    if drawdown is None or (isinstance(drawdown, float) and not math.isfinite(drawdown)) or pd.isna(drawdown):
+        dd_txt, dd_cls = "—", "chip-muted"
+    else:
+        dd_txt = f"{float(drawdown):+.1%}"
+        dd_cls = "neg" if drawdown < 0 else ("pos" if drawdown > 0 else "chip-muted")
+
+    concl = escape(conclusion or "—")
+    chip = {
+        "cheap": "chip-cheap",
+        "fair": "chip-fair",
+        "rich": "chip-rich",
+    }.get(conclusion_key, "chip-muted")
+
+    st.markdown(
+        f"""
+        <div class="valuation-strip">
+          <div class="valuation-item">
+            <div class="valuation-label">Avg Fwd</div>
+            <div class="valuation-value">{_fmt(avg_fwd_pe)}</div>
+          </div>
+          <div class="valuation-item">
+            <div class="valuation-label">5y Avg</div>
+            <div class="valuation-value">{_fmt(pe_5y_avg)}</div>
+          </div>
+          <div class="valuation-item">
+            <div class="valuation-label">Trail now</div>
+            <div class="valuation-value">{_fmt(avg_trail_pe)}</div>
+          </div>
+          <div class="valuation-item">
+            <div class="valuation-label">vs 5y</div>
+            <div class="valuation-value concl {chip}">{concl}</div>
+          </div>
+          <div class="valuation-item">
+            <div class="valuation-label">已回调</div>
+            <div class="valuation-value {dd_cls}">{dd_txt}</div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def triage_panel(opportunities: list[dict], risks: list[dict]) -> None:
+    """Compact Opportunity / Risk two-column snapshot."""
+
+    def _items(rows: list[dict]) -> str:
+        if not rows:
+            return '<div class="triage-empty">—</div>'
+        bits = []
+        for r in rows:
+            name = escape(str(r.get("name") or ""))
+            why = escape(str(r.get("why") or ""))
+            bits.append(
+                f'<div class="triage-item"><strong>{name}</strong>'
+                f' <span class="why">· {why}</span></div>'
+            )
+        return "".join(bits)
+
+    st.markdown(
+        f"""
+        <div class="triage-grid">
+          <div class="triage-col opp">
+            <div class="triage-head">Opportunity</div>
+            {_items(opportunities)}
+          </div>
+          <div class="triage-col risk">
+            <div class="triage-head">Risk</div>
+            {_items(risks)}
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def insight_line(*parts: str | None) -> None:
+    """One muted caption line joining non-empty insight fragments."""
+    text = "  ·  ".join(p for p in parts if p)
+    if not text:
+        return
+    st.markdown(f'<div class="insight-line">{escape(text)}</div>', unsafe_allow_html=True)
+
+
+def sort_controls(
+    options: list[str],
+    *,
+    key: str,
+    default: str,
+) -> tuple[str, bool]:
+    """Period sort buttons; clicking the active period toggles high↔low.
+
+    Returns ``(column, ascending)``.
+    """
+    state_col = f"{key}_col"
+    state_asc = f"{key}_asc"
+    if state_col not in st.session_state:
+        st.session_state[state_col] = default
+    if state_asc not in st.session_state:
+        st.session_state[state_asc] = False  # high → low by default
+
+    cols = st.columns([1.1] + [1] * len(options))
+    with cols[0]:
+        direction = "↑ low→high" if st.session_state[state_asc] else "↓ high→low"
+        st.caption(f"Sort {direction}")
+    for i, opt in enumerate(options):
+        with cols[i + 1]:
+            active = st.session_state[state_col] == opt
+            short = opt.replace("DD vs YTD peak", "已回调")
+            label = f"● {short}" if active else short
+            if st.button(
+                label,
+                key=f"{key}_btn_{opt}",
+                type="primary" if active else "secondary",
+                width="stretch",
+            ):
+                if active:
+                    st.session_state[state_asc] = not st.session_state[state_asc]
+                else:
+                    st.session_state[state_col] = opt
+                    st.session_state[state_asc] = False
+                st.rerun()
+    return st.session_state[state_col], st.session_state[state_asc]
+
+
 def pct_color(value) -> str:
     if value is None or pd.isna(value):
-        return "color: #9CA3AF"
+        return "color: #6B7280"
     return f"color: {GREEN if value >= 0 else RED}; font-weight: 650"
 
 
@@ -447,7 +678,7 @@ def internal_badge(note: str = "Internal — not visible in share view") -> None
 
 
 def internal_page() -> None:
-    """Softens typography on fully-internal pages (Propose, Data, Team Charts)."""
+    """Softens typography on fully-internal pages (Propose, Data & Update)."""
     st.markdown('<div class="internal-page" style="display:none"></div>', unsafe_allow_html=True)
     st.markdown(
         """

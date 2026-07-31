@@ -19,7 +19,8 @@ def basket_index(
     """Weighted buy-and-hold index for a basket, base 100 at ``start``.
 
     Defaults to the basket inception date. Pass an earlier ``start`` (e.g. the
-    Overview chart range) to build a comparable window against benchmarks.
+    Overview chart range, or a stats lookback) to build a comparable window
+    against benchmarks / compute 1M·3M returns for young baskets.
     """
     weights = basket.weights
     prices = {}
@@ -42,6 +43,48 @@ def basket_index(
     w = pd.Series({t: weights[t] for t in df.columns})
     w = w / w.sum()
     idx = (rel * w).sum(axis=1) * 100.0
+    return idx.rename(basket.id)
+
+
+# Enough calendar days so 1Y / multi-year period returns work even for young baskets.
+STATS_LOOKBACK_DAYS = 800
+
+
+def basket_index_for_stats(basket: Basket) -> pd.Series | None:
+    """Lookback index for period returns — independent of basket inception.
+
+    Uses weighted average of *available* constituents each day (a late-listed
+    name does not truncate the whole series). Base = 100 at the first date
+    where at least one constituent has a price in the lookback window.
+    """
+    weights = basket.weights
+    prices: dict[str, pd.Series] = {}
+    for ticker in weights:
+        s = load_price(ticker)
+        if s is not None and not s.empty:
+            prices[ticker] = s
+    if not prices:
+        return None
+
+    start = pd.Timestamp.today().normalize() - pd.Timedelta(days=STATS_LOOKBACK_DAYS)
+    df = pd.DataFrame(prices).sort_index()
+    df = df[df.index >= start].ffill()
+    if df.empty:
+        return None
+
+    # Rebase each name at its own first valid print in the window.
+    base = df.apply(lambda c: c.dropna().iloc[0] if c.notna().any() else np.nan)
+    rel = df.div(base)
+    w = pd.Series({t: weights[t] for t in df.columns}, dtype=float)
+    w = w / w.sum()
+
+    weighted = rel.mul(w, axis=1)
+    weight_avail = rel.notna().astype(float).mul(w, axis=1)
+    denom = weight_avail.sum(axis=1).replace(0.0, np.nan)
+    idx = (weighted.sum(axis=1, min_count=1) / denom) * 100.0
+    idx = idx.dropna()
+    if idx.empty:
+        return None
     return idx.rename(basket.id)
 
 
@@ -68,8 +111,19 @@ def rebase(series: pd.Series, start: pd.Timestamp) -> pd.Series | None:
     return s / s.iloc[0] * 100.0
 
 
-def perf_stats(index: pd.Series) -> dict:
-    """Return-period and risk stats for an index series (base 100)."""
+def perf_stats(
+    index: pd.Series,
+    *,
+    inception: str | pd.Timestamp | None = None,
+) -> dict:
+    """Return-period and risk stats for an index series (base 100).
+
+    Period returns (1W/1M/3M/YTD/1Y) use the full ``index`` window — pass a
+    lookback-extended series so young baskets still show 1M/3M.
+
+    When ``inception`` is set, Since Inception / Sharpe / Max DD are computed
+    on the post-inception slice only.
+    """
     if index is None or len(index) < 2:
         return {}
     last = index.iloc[-1]
@@ -91,11 +145,23 @@ def perf_stats(index: pd.Series) -> dict:
     else:
         in_year = index[index.index >= year_start]
         ret_ytd = (last / in_year.iloc[0] - 1.0) if not in_year.empty else None
-    daily = index.pct_change().dropna()
-    vol = daily.std() * np.sqrt(TRADING_DAYS) if len(daily) > 5 else None
-    ann_return = daily.mean() * TRADING_DAYS if len(daily) > 5 else None
-    sharpe = ann_return / vol if vol and vol > 0 and ann_return is not None else None
-    drawdown = (index / index.cummax() - 1.0).min()
+
+    if inception is not None:
+        sub = index[index.index >= pd.Timestamp(inception)].dropna()
+    else:
+        sub = index
+    if sub is None or len(sub) < 2:
+        ret_inception = None
+        vol = None
+        sharpe = None
+        drawdown = None
+    else:
+        ret_inception = float(sub.iloc[-1] / sub.iloc[0] - 1.0)
+        daily = sub.pct_change().dropna()
+        vol = daily.std() * np.sqrt(TRADING_DAYS) if len(daily) > 5 else None
+        ann_return = daily.mean() * TRADING_DAYS if len(daily) > 5 else None
+        sharpe = ann_return / vol if vol and vol > 0 and ann_return is not None else None
+        drawdown = float((sub / sub.cummax() - 1.0).min())
 
     return {
         "last": last,
@@ -105,7 +171,7 @@ def perf_stats(index: pd.Series) -> dict:
         "ret_3m": ret(91),
         "ret_ytd": ret_ytd,
         "ret_1y": ret(365),
-        "ret_inception": last / index.iloc[0] - 1.0,
+        "ret_inception": ret_inception,
         "vol_ann": vol,
         "sharpe": sharpe,
         "max_dd": drawdown,

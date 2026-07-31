@@ -114,7 +114,6 @@ pages = st.navigation([
     st.Page("app_pages/overview.py", title="Overview", default=True),
     st.Page("app_pages/basket_detail.py", title="Basket Detail"),
     st.Page("app_pages/propose.py", title="Propose a Basket", icon="🔒"),
-    st.Page("app_pages/custom_charts.py", title="Team Charts", icon="🔒"),
     st.Page("app_pages/data_admin.py", title="Data & Update", icon="🔒"),
 ])
 pages.run()

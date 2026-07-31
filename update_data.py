@@ -8,6 +8,7 @@ Optionally set TUSHARE_TOKEN / EODHD_API_KEY env vars to prefer those providers.
 
 from src.baskets import load_baskets
 from src.data import update_fundamentals, update_prices
+from src.valuation import update_earnings_and_pe
 
 UNIVERSAL_BENCHMARKS = {"CSI300", "SPX", "NDX"}
 
@@ -25,6 +26,12 @@ def main() -> None:
         update_fundamentals(tickers)
     except Exception as exc:  # noqa: BLE001
         print(f"  fundamentals FAILED - {exc}")
+
+    print("Updating earnings history + trailing PE paths...")
+    try:
+        update_earnings_and_pe(tickers)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  earnings/PE FAILED - {exc}")
 
     failed = {k: v for k, v in results.items() if v != "ok"}
     print(f"\nDone. {len(results) - len(failed)}/{len(results)} series updated.")

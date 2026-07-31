@@ -5,14 +5,14 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app_pages._shared import (UNIVERSAL_BENCHMARKS, basket_summary_rows,
-                               get_basket_index, get_baskets, get_price,
-                               market_asof)
-from src.analytics import component_indices, perf_stats, rebase
-from src.chart_registry import (chart_description, chart_title,
-                                load_chart_modules, render_chart)
+                               get_basket_index, get_basket_index_stats,
+                               get_baskets, get_price, market_asof)
+from src.analytics import perf_stats, rebase
 from src.data import fundamentals_for
 from src.ui import (BLUE, market_table, metric_grid, performance_strip,
-                    plotly_layout, tag_filter)
+                    plotly_layout, tag_filter, valuation_strip)
+from src.valuation import (basket_valuation, basket_valuation_figure,
+                           richness_label, ytd_drawdown)
 
 st.markdown(
     """
@@ -42,8 +42,9 @@ if view == "basket":
         st.caption(" · ".join(b.tags))
     st.markdown(b.thesis)
     idx = get_basket_index(b.id)
-    if idx is not None:
-        stats = perf_stats(idx)
+    idx_stats = get_basket_index_stats(b.id)
+    if idx_stats is not None:
+        stats = perf_stats(idx_stats, inception=b.inception)
         metric_grid([
             ("1M", stats.get("ret_1m"), "pct"),
             ("3M", stats.get("ret_3m"), "pct"),
@@ -54,13 +55,14 @@ if view == "basket":
             ("Vol.", stats.get("vol_ann"), "pct"),
             ("Max DD", stats.get("max_dd"), "pct"),
         ])
+        chart_idx = idx if idx is not None and not idx.empty else idx_stats
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=idx.index, y=idx.values, name=b.name,
+        fig.add_trace(go.Scatter(x=chart_idx.index, y=chart_idx.values, name=b.name,
                                  mode="lines", line=dict(color=BLUE, width=3)))
         for bm in UNIVERSAL_BENCHMARKS:
             s = get_price(bm)
             if s is not None:
-                r = rebase(s, idx.index[0])
+                r = rebase(s, chart_idx.index[0])
                 if r is not None:
                     fig.add_trace(go.Scatter(x=r.index, y=r.values, name=bm,
                                              mode="lines",
@@ -96,22 +98,30 @@ if view == "basket":
                           "RSI (14)": "{:.1f}"})
     st.caption(market_asof(tickers))
 
-    attached = [(slug, mod) for slug, mod in load_chart_modules()
-                if slug in b.team_charts]
-    if attached:
-        st.markdown("#### Charts")
-        cols = st.columns(2)
-        for i, (_, mod) in enumerate(attached):
-            with cols[i % 2]:
-                with st.container(border=True):
-                    st.markdown(f"##### {chart_title(mod)}")
-                    desc = chart_description(mod)
-                    if desc:
-                        st.caption(desc)
-                    try:
-                        render_chart(mod, basket=b, compact=True)
-                    except Exception:  # noqa: BLE001 - never break the public page
-                        st.caption("Chart temporarily unavailable.")
+    st.markdown("#### Valuation")
+    val = basket_valuation(tickers)
+    label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
+    dd = ytd_drawdown(idx_stats) if idx_stats is not None else None
+    valuation_strip(
+        val.get("avg_fwd_pe"),
+        val.get("pe_5y_mean"),
+        val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+        conclusion=label,
+        conclusion_key=chip,
+        drawdown=dd,
+    )
+    pe_hist = val.get("pe_hist")
+    chart_for_val = idx_stats if idx_stats is not None else idx
+    if chart_for_val is not None and pe_hist is not None and not pe_hist.empty:
+        st.plotly_chart(
+            basket_valuation_figure(
+                chart_for_val, pe_hist,
+                avg_fwd_pe=val.get("avg_fwd_pe"),
+                avg_trail_pe=val.get("avg_trail_pe") or val.get("cur_trail_pe"),
+                stats=val,
+            ),
+            width="stretch",
+        )
 else:
     st.title("China investment themes")
     st.caption(market_asof(UNIVERSAL_BENCHMARKS))

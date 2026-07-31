@@ -13,7 +13,7 @@ Recommended for 3–4 internal users: **Streamlit Community Cloud + GitHub**.
 | Piece | Who owns it | What it does |
 |---|---|---|
 | Streamlit Cloud app | You deploy once | Shared URL + password gate |
-| GitHub repo | Source of truth | `baskets/`, `custom_charts/`, and `data/` cache |
+| GitHub repo | Source of truth | `baskets/` and `data/` cache |
 | GitHub Actions | Runs every Beijing midnight | Pulls market data, commits `data/` |
 | `GITHUB_TOKEN` in Streamlit secrets | Web edits | Saves basket/chart changes back to GitHub |
 

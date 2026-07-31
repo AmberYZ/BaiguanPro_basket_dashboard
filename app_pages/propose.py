@@ -193,7 +193,6 @@ if st.button("Create proposal", type="primary", disabled=not (name and draft)):
         "newsletters": ([{"title": "Related piece", "url": newsletter, "date": today}]
                         if newsletter else []),
         "watchpoints": [],
-        "team_charts": [],
         "constituents": [
             {"ticker": c["ticker"], "name": c["name"],
              "weight": 1.0 if c.get("weight") is None else c.get("weight"),

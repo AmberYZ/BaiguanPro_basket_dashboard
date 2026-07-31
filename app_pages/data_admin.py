@@ -9,6 +9,7 @@ from src.github_sync import check_connection
 from src.github_sync import enabled as github_enabled
 from src.github_sync import trigger_data_update
 from src.ui import internal_badge, internal_page
+from src.valuation import update_earnings_and_pe
 
 internal_page()
 st.title("Data & Update")
@@ -56,6 +57,11 @@ with st.expander("Market data provider cascade", expanded=False):
 2. Fill PE/PB/mkt-cap gaps — A: Eastmoney spot → Baidu; HK: Baidu
 3. Returns (1D / 1M / 3M / YTD) and RSI always from the local price cache
 
+**Trailing PE history** (for valuation context)
+1. EODHD Earnings::History → TTM EPS → month-end price / EPS
+2. Fallback: Baidu 市盈率(TTM) via akshare (A + HK) when EODHD is missing/thin
+3. Used to place today's Forward PE in each name's / basket's own history
+
 EPS Gr. (1Y) = consensus forward EPS growth (+1y from EODHD Earnings.Trend). EODHD has no multi-year CAGR field.
 
 **Shared cloud refresh:** GitHub Actions runs every Beijing midnight (00:00) and
@@ -90,6 +96,11 @@ if st.button("Update all data now", type="primary"):
             update_fundamentals(tickers, log=log)
         except Exception as exc:  # noqa: BLE001
             log(f"fundamentals FAILED - {exc}")
+    with st.spinner("Fetching earnings history + trailing PE paths..."):
+        try:
+            update_earnings_and_pe(tickers, log=log)
+        except Exception as exc:  # noqa: BLE001
+            log(f"earnings/PE FAILED - {exc}")
 
     st.cache_data.clear()
     failed = {k: v for k, v in results.items() if v != "ok"}
