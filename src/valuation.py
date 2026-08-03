@@ -597,7 +597,11 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
 
 
 def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
-    """Homepage heatmap: 1M / 3M / YTD / DD vs YTD peak."""
+    """Homepage heatmap: 1M / 3M / YTD / DD vs YTD peak.
+
+    ``rows`` should already be sorted top→bottom in the desired visual order
+    (first row = top of chart).
+    """
     cols = ["1M", "3M", "YTD", "DD vs YTD peak"]
     z = rows[cols].astype(float).mul(100).values
     text = np.vectorize(
@@ -613,7 +617,7 @@ def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
             text=text,
             texttemplate="%{text}",
             colorbar=dict(title="%"),
-            hovertemplate="%{y}<br>%{x}: %{text}<extra></extra>",
+            hovertemplate="<b>%{y}</b><br>%{x}: <b>%{text}</b><extra></extra>",
         )
     )
     fig.update_layout(
@@ -621,5 +625,7 @@ def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
         margin=dict(l=20, r=20, t=50, b=20),
     )
     plotly_layout(fig, height=max(320, 80 + len(rows) * 36))
+    # First row at TOP; closest hover so the cell under the cursor is exact.
+    fig.update_yaxes(autorange="reversed")
     fig.update_layout(hovermode="closest")
     return fig

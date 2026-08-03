@@ -462,7 +462,9 @@ def sort_controls(
 ) -> tuple[str, bool]:
     """Period sort buttons; clicking the active period toggles high↔low.
 
-    Returns ``(column, ascending)``.
+    Returns ``(column, ascending)`` for pandas ``sort_values``. Charts that
+    draw categories on the y-axis should put the first sorted row at the
+    **top** (e.g. ``autorange="reversed"``).
     """
     state_col = f"{key}_col"
     state_asc = f"{key}_asc"
@@ -471,10 +473,12 @@ def sort_controls(
     if state_asc not in st.session_state:
         st.session_state[state_asc] = False  # high → low by default
 
-    cols = st.columns([1.1] + [1] * len(options))
+    cols = st.columns([1.2] + [1] * len(options))
     with cols[0]:
-        direction = "↑ low→high" if st.session_state[state_asc] else "↓ high→low"
-        st.caption(f"Sort {direction}")
+        if st.session_state[state_asc]:
+            st.caption("Sort ↑ top = low")
+        else:
+            st.caption("Sort ↓ top = high")
     for i, opt in enumerate(options):
         with cols[i + 1]:
             active = st.session_state[state_col] == opt

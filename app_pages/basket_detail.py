@@ -299,14 +299,21 @@ with st.expander("Internal — edit tags, newsletters, definition", expanded=Fal
         "Approve proposals, edit tags / newsletters / definition, or delete."
     )
     st.caption(
-        "Any teammate with the password can activate a proposal. "
-        "Tags, newsletters, and basket definition are editable below."
+        "Any teammate with the password can activate a proposal or move an "
+        "active basket back to proposed. Tags, newsletters, and basket "
+        "definition are editable below."
     )
     if b.status == "proposed":
         if st.button("Approve and activate basket", type="primary"):
             update_basket_fields(b.id, {"status": "active"})
             st.cache_data.clear()
             flash_success(f"“{b.name}” is now Active.")
+            st.rerun()
+    elif b.status == "active":
+        if st.button("Move back to proposed"):
+            update_basket_fields(b.id, {"status": "proposed"})
+            st.cache_data.clear()
+            flash_success(f"“{b.name}” is now Proposed (draft).")
             st.rerun()
 
     internal_heading("Tags")

@@ -68,7 +68,9 @@ def relative_performance_chart(
         ranked = pd.concat([ranked, pd.DataFrame(bm_rows)], ignore_index=True)
 
     col = sort_by if sort_by in ranked.columns else "YTD"
-    ranked = ranked.sort_values(col, ascending=ascending, na_position="first")
+    # Semantic order: high→low puts the largest first. Plotly categorical y
+    # draws the first category at the bottom, so we reverse the axis below.
+    ranked = ranked.sort_values(col, ascending=ascending, na_position="last")
     patterns = ["/" if kind == "benchmark" else "" for kind in ranked["_kind"]]
     hover_kind = [
         "Benchmark" if kind == "benchmark" else "Basket"
@@ -88,12 +90,19 @@ def relative_performance_chart(
             text=[f"{v:+.1%}" if pd.notna(v) else "—" for v in ranked[period]],
             textposition="outside",
             cliponaxis=False,
-            hovertemplate="%{customdata[1]} %{y}<br>" + period + " %{x:+.1%}<extra></extra>",
+            hovertemplate=(
+                "<b>%{y}</b> · %{customdata[1]}<br>"
+                + period
+                + ": <b>%{x:+.1%}</b><extra>"
+                + period
+                + "</extra>"
+            ),
         ))
     fig.add_vline(x=0, line_color="rgba(28,36,48,0.25)", line_width=1)
     fig.update_xaxes(tickformat="+.0%", title=None, automargin=True)
-    fig.update_yaxes(title=None, automargin=True)
-    direction = "low→high" if ascending else "high→low"
+    # First row in `ranked` should appear at the TOP of the chart.
+    fig.update_yaxes(title=None, automargin=True, autorange="reversed")
+    direction = "top = low" if ascending else "top = high"
     fig.update_layout(
         title=f"Relative performance — sorted by {col} ({direction})",
         barmode="group",
@@ -102,8 +111,13 @@ def relative_performance_chart(
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
         margin=dict(l=20, r=60, t=60, b=20),
         showlegend=True,
+        hovermode="closest",
+        hoverlabel=dict(namelength=-1),
     )
     plotly_layout(fig, height=max(340, 90 + len(ranked) * 58))
+    # plotly_layout resets hovermode to x-unified (good for time series);
+    # ranking bars need closest so the tooltip matches the bar under the cursor.
+    fig.update_layout(hovermode="closest")
     return fig
 
 
@@ -299,7 +313,8 @@ else:
 st.subheader("Relative performance")
 st.caption(
     "YTD / 3M / 1M share one fixed color each across baskets and benchmarks "
-    "(benchmarks are hatched). Click a period to sort; click again to flip direction."
+    "(benchmarks are hatched). Click a period to sort; click again to flip "
+    "direction (top of chart = high or low). Hover a single bar for that period."
 )
 rel_sort, rel_asc = sort_controls(
     ["YTD", "3M", "1M"], key="rel_sort", default="YTD",
@@ -333,10 +348,11 @@ if not val_rows.empty:
             ["1M", "3M", "YTD", "DD vs YTD peak"],
             key="heat_sort", default="YTD",
         )
+        heat_sorted = heat_data.sort_values(
+            heat_sort, ascending=heat_asc, na_position="last",
+        )
         st.plotly_chart(
-            return_drawdown_heatmap(
-                heat_data.sort_values(heat_sort, ascending=heat_asc, na_position="last")
-            ),
+            return_drawdown_heatmap(heat_sorted),
             width="stretch",
             key=f"heat_{nav_nonce}",
         )
