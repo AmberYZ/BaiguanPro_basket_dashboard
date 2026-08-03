@@ -6,7 +6,9 @@ from app_pages._shared import (basket_summary_rows, baskets_for_charts,
                                cache_banner, get_basket_index,
                                get_basket_index_stats, get_price,
                                hide_draft_on_charts, UNIVERSAL_BENCHMARKS)
-from src.analytics import basket_index, perf_stats, rebase
+from src.analytics import (CHART_RANGES, basket_index, basket_index_ytd,
+                           chart_range_start, perf_stats, rebase,
+                           ticker_period_returns)
 from src.auth import with_auth
 from src.baskets import load_baskets
 from src.data import fundamentals_for
@@ -19,15 +21,9 @@ from src.ui import (BLUE, PERIOD_COLORS, insight_line, market_table,
 from src.valuation import (basket_valuation, fwd_pe_vs_ytd_scatter,
                            return_drawdown_heatmap, richness_label, ytd_drawdown)
 
-RANGES = {"3M": 91, "6M": 183, "YTD": "ytd", "1Y": 365, "2Y": 730,
-          "3Y": 1095, "5Y": 1825}
-
 
 def range_start(end: pd.Timestamp, choice: str) -> pd.Timestamp:
-    value = RANGES[choice]
-    if value == "ytd":
-        return pd.Timestamp(end.year, 1, 1)
-    return end - pd.Timedelta(days=value)
+    return chart_range_start(end, choice)
 
 
 def open_basket(basket_id: str) -> None:
@@ -131,14 +127,14 @@ def valuation_overview_rows(baskets, summary: pd.DataFrame) -> pd.DataFrame:
         stats_row = stats_row.iloc[0]
         tickers = [c.ticker for c in b.constituents]
         val = basket_valuation(tickers)
-        idx = get_basket_index_stats(b.id)
+        ytd_path = basket_index_ytd(b)
         rows.append({
             "Basket": b.name,
             "_id": b.id,
             "YTD": stats_row["YTD"],
             "1M": stats_row["1M"],
             "3M": stats_row["3M"],
-            "DD vs YTD peak": ytd_drawdown(idx) if idx is not None else None,
+            "DD vs YTD peak": ytd_drawdown(ytd_path) if ytd_path is not None else None,
             "avg_fwd_pe": val["avg_fwd_pe"],
             "avg_trail_pe": val.get("avg_trail_pe") or val.get("cur_trail_pe"),
             "pe_5y_mean": val.get("pe_5y_mean"),
@@ -216,8 +212,9 @@ basket_links = {
 pct_cols = ["1W", "1M", "3M", "YTD", "1Y", "Since Inception", "Excess vs CSI300", "Max DD"]
 st.caption(
     "Click a basket name to open its detail page. "
-    "1W / 1M / 3M / YTD / 1Y always use equal-weight constituent lookback "
-    "(ignore when the basket was created). "
+    "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
+    "own return using Google Finance windows "
+    "(1M=4 weeks, 3M=13 weeks, 1Y=52 weeks; YTD = since prior year-end close). "
     "Since Inception / Excess / Max DD / Sharpe use the formal inception date."
 )
 market_table(
@@ -231,8 +228,10 @@ market_table(
         "Sharpe": "Since inception: annualized daily return / annualized volatility (no risk-free rate).",
         "Since Inception": "Total return from the basket's inception date.",
         "1Y": "Trailing 12-month return of equal-weight constituents (lookback), blank if price history is shorter.",
-        "1M": "Trailing 1-month return of equal-weight constituents (not limited to inception).",
-        "3M": "Trailing 3-month return of equal-weight constituents (not limited to inception).",
+        "1M": "Trailing 4-week return (Google Finance 1M window), equal-weight constituents.",
+        "3M": "Trailing 13-week return (Google Finance-style), equal-weight constituents.",
+        "YTD": "From last close before Jan 1 to latest close, equal-weight constituents.",
+        "1Y": "Trailing 52-week return, equal-weight constituents.",
     },
 )
 
@@ -246,7 +245,7 @@ triage_panel(triage["opportunities"], triage["risks"])
 
 st.subheader("Performance")
 range_choice = st.segmented_control(
-    "Time range", list(RANGES), default="1Y", selection_mode="single",
+    "Time range", list(CHART_RANGES), default="1Y", selection_mode="single",
 ) or "1Y"
 
 fig = go.Figure()
@@ -386,18 +385,18 @@ for row in range(0, len(baskets), 2):
                 tickers = [c.ticker for c in b.constituents]
                 val = basket_valuation(tickers)
                 label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
-                idx_stats = get_basket_index_stats(b.id)
+                ytd_path = basket_index_ytd(b)
                 valuation_strip(
                     val.get("avg_fwd_pe"),
                     val.get("pe_5y_mean"),
                     val.get("avg_trail_pe") or val.get("cur_trail_pe"),
                     conclusion=label,
                     conclusion_key=chip,
-                    drawdown=ytd_drawdown(idx_stats) if idx_stats is not None else None,
+                    drawdown=ytd_drawdown(ytd_path) if ytd_path is not None else None,
                 )
                 insight_line(
                     format_breadth_line(basket_breadth(b)),
-                    format_attribution_line(contribution_attribution(b, days=30, top_n=2)),
+                    format_attribution_line(contribution_attribution(b, top_n=2)),
                 )
                 mini = go.Figure()
                 mini_end = latest if ends else pd.Timestamp.today()
@@ -435,12 +434,13 @@ for row in range(0, len(baskets), 2):
                 rows = []
                 for c in b.constituents:
                     item = {"Ticker": c.ticker, "Name": c.name}
+                    rets = ticker_period_returns(c.ticker)
+                    item["1M"] = rets.get("ret_1m")
+                    item["3M"] = rets.get("ret_3m")
+                    item["YTD"] = rets.get("ret_ytd")
                     if fund is not None and c.ticker in fund.index:
                         f = fund.loc[c.ticker]
                         item.update({
-                            "1M": f["pct_1m"] / 100 if pd.notna(f.get("pct_1m")) else None,
-                            "3M": f["pct_3m"] / 100 if pd.notna(f.get("pct_3m")) else None,
-                            "YTD": f["pct_ytd"] / 100 if pd.notna(f.get("pct_ytd")) else None,
                             "PE": f["pe_ttm"],
                             "Fwd PE": f.get("fwd_pe"),
                             "PEG": f.get("peg"),

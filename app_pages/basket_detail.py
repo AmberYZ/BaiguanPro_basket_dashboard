@@ -5,7 +5,7 @@ import streamlit as st
 from app_pages._shared import (STATUS_BADGE, cache_banner, get_basket_index,
                                get_basket_index_stats, get_baskets, get_price,
                                UNIVERSAL_BENCHMARKS)
-from src.analytics import component_indices, perf_stats, rebase
+from src.analytics import basket_index_ytd, basket_perf_stats, component_indices, rebase, ticker_period_returns
 from src.auth import flash_success
 from src.baskets import delete_basket, update_basket_fields
 from src.data import fundamentals_for, merge_basket_news, quote_snapshot, search_tickers
@@ -72,12 +72,13 @@ with right:
 
 idx = get_basket_index(b.id)
 idx_stats = get_basket_index_stats(b.id)
+ytd_path = basket_index_ytd(b)
 
 st.markdown("#### Performance vs benchmarks")
 if idx_stats is None or idx_stats.empty:
     st.warning("No cached price data for this basket yet — run an update on the Data & Update page.")
 else:
-    stats = perf_stats(idx_stats, inception=b.inception)
+    stats = basket_perf_stats(b)
     metric_grid([
         ("1W", stats.get("ret_1w"), "pct"),
         ("1M", stats.get("ret_1m"), "pct"),
@@ -89,8 +90,9 @@ else:
         ("Max DD", stats.get("max_dd"), "pct"),
     ])
     st.caption(
-        "1W / 1M / 3M / YTD / 1Y = constituent lookback (not limited by inception). "
-        "Since / Sharpe / Max DD = from formal inception."
+        "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
+        "own return (Google windows: 1M=4w, 3M=13w, 1Y=52w; YTD from prior "
+        "year-end). Since / Sharpe / Max DD = from formal inception."
     )
 
     chart_mode = st.radio(
@@ -155,13 +157,14 @@ for c in b.constituents:
         "EV/EBITDA": None,
         "RSI (14)": None,
     }
+    rets = ticker_period_returns(c.ticker)
+    row["1M"] = rets.get("ret_1m")
+    row["3M"] = rets.get("ret_3m")
+    row["YTD"] = rets.get("ret_ytd")
     if fund is not None and c.ticker in fund.index:
         f = fund.loc[c.ticker]
         row.update({
             "Price": f["price"],
-            "1M": f["pct_1m"] / 100 if pd.notna(f.get("pct_1m")) else None,
-            "3M": f["pct_3m"] / 100 if pd.notna(f.get("pct_3m")) else None,
-            "YTD": f["pct_ytd"] / 100 if pd.notna(f.get("pct_ytd")) else None,
             "Fwd PE": f.get("fwd_pe"),
             "PEG": f.get("peg"),
             "EPS Gr. (1Y)": f.get("eps_growth"),
@@ -170,6 +173,11 @@ for c in b.constituents:
             "EV/EBITDA": f.get("ev_ebitda"),
             "RSI (14)": f.get("rsi_14"),
         })
+        # Prefer live close from price cache when fundamentals price is stale.
+        if rets.get("asof") is not None:
+            s = get_price(c.ticker)
+            if s is not None and not s.empty:
+                row["Price"] = float(s.iloc[-1])
     rows.append(row)
 
 constituents_df = pd.DataFrame(rows)
@@ -194,7 +202,7 @@ st.caption(
 )
 val = basket_valuation(tickers)
 label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
-dd = ytd_drawdown(idx_stats) if idx_stats is not None else None
+dd = ytd_drawdown(ytd_path) if ytd_path is not None else None
 valuation_strip(
     val.get("avg_fwd_pe"),
     val.get("pe_5y_mean"),
@@ -205,7 +213,7 @@ valuation_strip(
 )
 insight_line(
     format_breadth_line(basket_breadth(b)),
-    format_attribution_line(contribution_attribution(b, days=30, top_n=2)),
+    format_attribution_line(contribution_attribution(b, top_n=2)),
 )
 
 def _fmt_pe(v, digits=1):

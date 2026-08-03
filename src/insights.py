@@ -14,25 +14,18 @@ CHEAP_PCTILE = 40
 RICH_PCTILE = 70
 
 
-def _period_return(series: pd.Series, days: int) -> float | None:
-    s = series.dropna()
-    if len(s) < 2:
-        return None
-    end = s.index[-1]
-    cutoff = end - pd.Timedelta(days=days)
-    prior = s[s.index <= cutoff]
-    if prior.empty:
-        return None
-    return float(s.iloc[-1] / prior.iloc[-1] - 1.0)
-
-
-def component_period_returns(basket: Basket, *, days: int = 30) -> list[dict]:
+def component_period_returns(basket: Basket, *, period: str = "1M") -> list[dict]:
     """Per-constituent period return + weight (for attribution)."""
+    from .analytics import _series_period_return
+
     weights = basket.weights
     rows = []
     for c in basket.constituents:
         s = load_price(c.ticker)
-        ret = _period_return(s, days) if s is not None else None
+        ret = (
+            _series_period_return(s, period=period)
+            if s is not None else None
+        )
         rows.append({
             "ticker": c.ticker,
             "name": c.name,
@@ -45,11 +38,13 @@ def component_period_returns(basket: Basket, *, days: int = 30) -> list[dict]:
 def contribution_attribution(
     basket: Basket,
     *,
-    days: int = 30,
+    period: str = "1M",
+    days: int | None = None,  # noqa: ARG001 — legacy kw ignored
+    months: int | None = None,  # noqa: ARG001 — legacy kw ignored
     top_n: int = 2,
 ) -> dict:
     """Top / bottom contributors by weight × return (equal-weight friendly)."""
-    rows = component_period_returns(basket, days=days)
+    rows = component_period_returns(basket, period=period)
     scored = []
     for r in rows:
         if r["ret"] is None:
@@ -57,7 +52,7 @@ def contribution_attribution(
         contrib = float(r["weight"]) * float(r["ret"])
         scored.append({**r, "contrib": contrib})
     if not scored:
-        return {"leaders": [], "laggards": [], "period_days": days}
+        return {"leaders": [], "laggards": [], "period": period}
 
     scored.sort(key=lambda x: x["contrib"], reverse=True)
     leaders = scored[:top_n]
@@ -65,8 +60,7 @@ def contribution_attribution(
     # Avoid duplicating the same name in both lists when n is tiny.
     lead_tickers = {x["ticker"] for x in leaders}
     laggards = [x for x in laggards if x["ticker"] not in lead_tickers][:top_n]
-    return {"leaders": leaders, "laggards": laggards, "period_days": days}
-
+    return {"leaders": leaders, "laggards": laggards, "period": period}
 
 def _short_name(name: str, ticker: str, max_len: int = 6) -> str:
     text = (name or ticker).strip()

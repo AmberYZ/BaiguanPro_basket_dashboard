@@ -11,7 +11,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.analytics import (  # noqa: E402
-    basket_index, basket_index_for_stats, excess_vs_benchmark, perf_stats,
+    basket_index, basket_index_for_stats, basket_perf_stats,
+    excess_vs_benchmark,
 )
 from src.baskets import load_baskets  # noqa: E402
 from src.data import BENCHMARKS, cache_age, load_fundamentals, load_price  # noqa: E402
@@ -92,18 +93,13 @@ def basket_summary_rows(*, for_charts: bool = False) -> pd.DataFrame:
     baskets = baskets_for_charts() if for_charts else get_baskets()
     rows = []
     for b in baskets:
-        idx = get_basket_index_stats(b.id)
-        stats = (
-            perf_stats(idx, inception=b.inception) if idx is not None else {}
-        )
+        stats = basket_perf_stats(b)
         excess = None
-        if idx is not None:
+        idx = get_basket_index(b.id)
+        if idx is not None and len(idx) >= 2:
             bench = get_price(UNIVERSAL_BENCHMARKS[0])
             if bench is not None:
-                # Excess since formal inception, not the stats lookback start.
-                since = idx[idx.index >= pd.Timestamp(b.inception)]
-                if since is not None and len(since) >= 2:
-                    excess = excess_vs_benchmark(since, bench)
+                excess = excess_vs_benchmark(idx, bench)
         rows.append({
             "Basket": b.name,
             "1W": stats.get("ret_1w"),

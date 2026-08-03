@@ -7,7 +7,7 @@ import streamlit as st
 from app_pages._shared import (UNIVERSAL_BENCHMARKS, basket_summary_rows,
                                get_basket_index, get_basket_index_stats,
                                get_baskets, get_price, market_asof)
-from src.analytics import perf_stats, rebase
+from src.analytics import basket_index_ytd, basket_perf_stats, rebase, ticker_period_returns
 from src.data import fundamentals_for
 from src.ui import (BLUE, market_table, metric_grid, performance_strip,
                     plotly_layout, tag_filter, valuation_strip)
@@ -43,8 +43,9 @@ if view == "basket":
     st.markdown(b.thesis)
     idx = get_basket_index(b.id)
     idx_stats = get_basket_index_stats(b.id)
-    if idx_stats is not None:
-        stats = perf_stats(idx_stats, inception=b.inception)
+    ytd_path = basket_index_ytd(b)
+    stats = basket_perf_stats(b)
+    if stats.get("ret_ytd") is not None or (idx_stats is not None and not idx_stats.empty):
         metric_grid([
             ("1M", stats.get("ret_1m"), "pct"),
             ("3M", stats.get("ret_3m"), "pct"),
@@ -56,19 +57,20 @@ if view == "basket":
             ("Max DD", stats.get("max_dd"), "pct"),
         ])
         chart_idx = idx if idx is not None and not idx.empty else idx_stats
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=chart_idx.index, y=chart_idx.values, name=b.name,
-                                 mode="lines", line=dict(color=BLUE, width=3)))
-        for bm in UNIVERSAL_BENCHMARKS:
-            s = get_price(bm)
-            if s is not None:
-                r = rebase(s, chart_idx.index[0])
-                if r is not None:
-                    fig.add_trace(go.Scatter(x=r.index, y=r.values, name=bm,
-                                             mode="lines",
-                                             line=dict(dash="dash", width=1.4)))
-        plotly_layout(fig, 480)
-        st.plotly_chart(fig, width="stretch")
+        if chart_idx is not None and not chart_idx.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=chart_idx.index, y=chart_idx.values, name=b.name,
+                                     mode="lines", line=dict(color=BLUE, width=3)))
+            for bm in UNIVERSAL_BENCHMARKS:
+                s = get_price(bm)
+                if s is not None:
+                    r = rebase(s, chart_idx.index[0])
+                    if r is not None:
+                        fig.add_trace(go.Scatter(x=r.index, y=r.values, name=bm,
+                                                 mode="lines",
+                                                 line=dict(dash="dash", width=1.4)))
+            plotly_layout(fig, 480)
+            st.plotly_chart(fig, width="stretch")
 
     st.markdown("#### Essential data")
     tickers = [c.ticker for c in b.constituents]
@@ -79,18 +81,23 @@ if view == "basket":
                "3M": None, "YTD": None, "Fwd PE": None, "PEG": None,
                "EPS Gr. (1Y)": None, "P/E": None, "P/B": None, "EV/EBITDA": None,
                "RSI (14)": None}
+        rets = ticker_period_returns(c.ticker)
+        row["1M"] = rets.get("ret_1m")
+        row["3M"] = rets.get("ret_3m")
+        row["YTD"] = rets.get("ret_ytd")
+        s = get_price(c.ticker)
+        if s is not None and not s.empty:
+            row["Price"] = float(s.iloc[-1])
         if fund is not None and c.ticker in fund.index:
             f = fund.loc[c.ticker]
             row.update({
-                "Price": f.get("price"),
-                "1M": f.get("pct_1m") / 100 if pd.notna(f.get("pct_1m")) else None,
-                "3M": f.get("pct_3m") / 100 if pd.notna(f.get("pct_3m")) else None,
-                "YTD": f.get("pct_ytd") / 100 if pd.notna(f.get("pct_ytd")) else None,
                 "Fwd PE": f.get("fwd_pe"), "PEG": f.get("peg"),
                 "EPS Gr. (1Y)": f.get("eps_growth"),
                 "P/E": f.get("pe_ttm"), "P/B": f.get("pb"),
                 "EV/EBITDA": f.get("ev_ebitda"), "RSI (14)": f.get("rsi_14"),
             })
+            if row["Price"] is None and pd.notna(f.get("price")):
+                row["Price"] = f.get("price")
         rows.append(row)
     market_table(pd.DataFrame(rows), pct_cols=["1M", "3M", "YTD", "EPS Gr. (1Y)"],
                  formats={"Price": "{:.2f}", "Fwd PE": "{:.1f}", "PEG": "{:.2f}",
@@ -101,7 +108,7 @@ if view == "basket":
     st.markdown("#### Valuation")
     val = basket_valuation(tickers)
     label, chip = richness_label(val.get("fwd_vs_5y_trail_pctile"))
-    dd = ytd_drawdown(idx_stats) if idx_stats is not None else None
+    dd = ytd_drawdown(ytd_path) if ytd_path is not None else None
     valuation_strip(
         val.get("avg_fwd_pe"),
         val.get("pe_5y_mean"),
