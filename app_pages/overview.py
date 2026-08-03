@@ -2,9 +2,10 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from app_pages._shared import (basket_summary_rows, cache_banner,
-                               get_basket_index, get_basket_index_stats,
-                               get_baskets, get_price, UNIVERSAL_BENCHMARKS)
+from app_pages._shared import (basket_summary_rows, baskets_for_charts,
+                               cache_banner, get_basket_index,
+                               get_basket_index_stats, get_price,
+                               hide_draft_on_charts, UNIVERSAL_BENCHMARKS)
 from src.analytics import basket_index, perf_stats, rebase
 from src.auth import with_auth
 from src.baskets import load_baskets
@@ -172,9 +173,15 @@ with btn_col:
     share_button("Share view", "?share=overview")
 cache_banner()
 
-df = basket_summary_rows()
+df = basket_summary_rows(for_charts=True)
 if df.empty:
-    st.info("No baskets yet. Add YAML files under `baskets/` or use **Propose a Basket**.")
+    if hide_draft_on_charts():
+        st.info(
+            "No active baskets to chart. Turn off **Hide draft baskets on charts** "
+            "in the sidebar, or approve a proposal in **Basket Detail**."
+        )
+    else:
+        st.info("No baskets yet. Add YAML files under `baskets/` or use **Propose a Basket**.")
     st.stop()
 
 all_tags = sorted({tag for tags in df["_tags"] for tag in tags})
@@ -186,7 +193,7 @@ if selected_tags:
         st.info("No baskets match the selected tags.")
         st.stop()
 
-baskets = [b for b in get_baskets() if b.id in set(df["_id"])]
+baskets = [b for b in baskets_for_charts() if b.id in set(df["_id"])]
 basket_links = {
     row["Basket"]: with_auth(f"/basket_detail?basket={row['_id']}")
     for _, row in df.iterrows()

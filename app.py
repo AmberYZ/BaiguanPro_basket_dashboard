@@ -110,6 +110,19 @@ def password_gate() -> None:
 password_gate()
 show_flash()
 
+from app_pages._shared import HIDE_DRAFT_ON_CHARTS_KEY  # noqa: E402
+
+if HIDE_DRAFT_ON_CHARTS_KEY not in st.session_state:
+    st.session_state[HIDE_DRAFT_ON_CHARTS_KEY] = True
+with st.sidebar:
+    st.markdown("**Display**")
+    st.toggle(
+        "Hide draft baskets on charts",
+        key=HIDE_DRAFT_ON_CHARTS_KEY,
+        help="When on, Overview charts and the summary table omit proposed "
+        "(and archived) baskets. Basket Detail still lists every basket.",
+    )
+
 pages = st.navigation([
     st.Page("app_pages/overview.py", title="Overview", default=True),
     st.Page("app_pages/basket_detail.py", title="Basket Detail"),

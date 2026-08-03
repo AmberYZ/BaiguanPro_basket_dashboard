@@ -19,11 +19,29 @@ from src.ui import admin_line  # noqa: E402
 
 STATUS_BADGE = {"active": "Active", "proposed": "Proposed", "archived": "Archived"}
 UNIVERSAL_BENCHMARKS = ["CSI300", "SPX", "NDX"]
+HIDE_DRAFT_ON_CHARTS_KEY = "hide_draft_on_charts"
 
 
 @st.cache_data(ttl=300)
 def get_baskets():
     return load_baskets()
+
+
+def hide_draft_on_charts() -> bool:
+    """Global pref: omit proposed/archived baskets from Overview charts."""
+    return bool(st.session_state.get(HIDE_DRAFT_ON_CHARTS_KEY, True))
+
+
+def baskets_for_charts():
+    """Baskets eligible for Overview / chart surfaces.
+
+    When the global hide-draft setting is on, only ``active`` baskets are
+    included. Basket Detail / Propose / Data Admin keep using ``get_baskets()``.
+    """
+    baskets = get_baskets()
+    if hide_draft_on_charts():
+        return [b for b in baskets if b.status == "active"]
+    return list(baskets)
 
 
 @st.cache_data(ttl=300)
@@ -65,9 +83,15 @@ def market_asof(keys: list[str] | None = None) -> str:
     return f"Market data as of {min(dates)}"
 
 
-def basket_summary_rows() -> pd.DataFrame:
+def basket_summary_rows(*, for_charts: bool = False) -> pd.DataFrame:
+    """Performance summary rows for every (or chart-eligible) basket.
+
+    Pass ``for_charts=True`` on Overview so the global hide-draft setting
+    applies. Share / other callers keep the full list unless they filter.
+    """
+    baskets = baskets_for_charts() if for_charts else get_baskets()
     rows = []
-    for b in get_baskets():
+    for b in baskets:
         idx = get_basket_index_stats(b.id)
         stats = (
             perf_stats(idx, inception=b.inception) if idx is not None else {}
