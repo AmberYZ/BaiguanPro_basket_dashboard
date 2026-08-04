@@ -550,11 +550,12 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
     """Fwd PE (x) vs YTD (y); color = drawdown from YTD peak.
 
     Read as: valuation level × year-to-date performance, with color showing
-    whether price has washed out from the YTD high (red = deep DD, teal = near peak).
-    Richness vs history lives in the valuation strip / basket detail — not here.
+    whether price has washed out from the YTD high (red = deep drawdown,
+    teal = near peak). Richness vs history lives in the valuation strip /
+    basket detail — not here.
     """
     dd = rows["DD vs YTD peak"]
-    labels = rows["Basket"].astype(str).map(_short_scatter_label)
+    labels = rows["Basket"].astype(str).map(_wrap_scatter_label)
     fig = go.Figure(
         go.Scatter(
             x=rows["avg_fwd_pe"],
@@ -569,7 +570,7 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
                 color=dd * 100,
                 colorscale=DD_SCALE,
                 colorbar=dict(
-                    title=dict(text="DD vs<br>YTD peak %", side="right"),
+                    title=dict(text="Drawdown vs<br>YTD peak %", side="right"),
                     thickness=14,
                     len=0.75,
                 ),
@@ -586,42 +587,61 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
             hovertemplate=(
                 "<b>%{customdata[5]}</b>"
                 "<br>Fwd PE %{x:.1f}<br>YTD %{y:.1f}%"
-                "<br>DD vs YTD peak %{customdata[4]:.1f}%"
+                "<br>Drawdown vs YTD peak %{customdata[4]:.1f}%"
                 "<br>PEG %{customdata[0]:.2f}<br>5y trail med %{customdata[1]:.1f}"
                 "<br>Fwd vs 5y med %{customdata[2]:+.0f}%<extra></extra>"
             ),
         )
     )
     fig.update_layout(
-        title="Fwd PE vs YTD return (color = DD vs YTD peak)",
+        title="Fwd PE vs YTD return (color = drawdown vs YTD peak)",
         xaxis_title="Average Forward P/E",
         yaxis_title="YTD Return (%)",
-        # Room for marker labels (top) and colorbar title (right).
-        margin=dict(l=48, r=72, t=72, b=48),
+        # Room for multi-line marker labels (top) and colorbar title (right).
+        margin=dict(l=48, r=88, t=96, b=48),
     )
-    plotly_layout(fig, height=520)
-    # Keep the extra margins — plotly_layout resets them tighter.
+    plotly_layout(fig, height=560)
     fig.update_layout(
         hovermode="closest",
-        margin=dict(l=48, r=72, t=72, b=48),
+        margin=dict(l=48, r=88, t=96, b=48),
     )
     return fig
 
 
-def _short_scatter_label(name: str, max_len: int = 22) -> str:
-    """Truncate long basket names so scatter labels stay on-canvas."""
+def _wrap_scatter_label(name: str, width: int = 18) -> str:
+    """Full basket name, wrapped with <br> so Plotly shows every character."""
     name = (name or "").strip()
-    if len(name) <= max_len:
+    if not name or len(name) <= width:
         return name
-    return name[: max_len - 1].rstrip() + "…"
+    words = name.split()
+    if len(words) > 1:
+        lines: list[str] = []
+        cur = ""
+        for word in words:
+            trial = f"{cur} {word}".strip() if cur else word
+            if len(trial) <= width:
+                cur = trial
+            else:
+                if cur:
+                    lines.append(cur)
+                while len(word) > width:
+                    lines.append(word[:width])
+                    word = word[width:]
+                cur = word
+        if cur:
+            lines.append(cur)
+        return "<br>".join(lines)
+    return "<br>".join(name[i:i + width] for i in range(0, len(name), width))
+
 
 def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
-    """Homepage heatmap: 1M / 3M / YTD / DD vs YTD peak.
+    """Homepage heatmap: 1M / 3M / YTD / drawdown vs YTD peak.
 
     ``rows`` should already be sorted top→bottom in the desired visual order
     (first row = top of chart).
     """
     cols = ["1M", "3M", "YTD", "DD vs YTD peak"]
+    x_labels = ["1M", "3M", "YTD", "Drawdown vs YTD peak"]
     z = rows[cols].astype(float).mul(100).values
     text = np.vectorize(
         lambda v: f"{v:+.1f}%" if v == v else "—"
@@ -629,7 +649,7 @@ def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
     fig = go.Figure(
         go.Heatmap(
             z=z,
-            x=cols,
+            x=x_labels,
             y=rows["Basket"].tolist(),
             colorscale="RdYlGn",
             zmid=0,
