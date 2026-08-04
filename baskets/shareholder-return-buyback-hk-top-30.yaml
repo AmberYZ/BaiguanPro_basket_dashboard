@@ -1,0 +1,137 @@
+id: shareholder-return-buyback-hk-top-30
+name: Shareholder Return & Buyback (HK top 30)
+status: proposed
+author: Amber
+created: '2026-08-04'
+inception: '2026-08-04'
+tags:
+- buybacks
+- dividends
+thesis: ''
+benchmarks:
+- CSI300
+- SPX
+- NDX
+newsletters: []
+watchpoints: []
+constituents:
+- ticker: 01114.HK
+  name: Brilliance China Automotive Holdings Limited
+  weight: 1.0
+  note: ''
+- ticker: 03660.HK
+  name: 奇富科技
+  weight: 1.0
+  note: ''
+- ticker: 00293.HK
+  name: Cathay Pacific Airways Limited
+  weight: 1.0
+  note: ''
+- ticker: 01919.HK
+  name: COSCO SHIPPING Holdings Co Ltd H
+  weight: 1.0
+  note: ''
+- ticker: 00316.HK
+  name: Orient Overseas International Ltd
+  weight: 1.0
+  note: ''
+- ticker: 02510.HK
+  name: TS Lines Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00467.HK
+  name: United Energy Group Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00189.HK
+  name: Dongyue Group Ltd
+  weight: 1.0
+  note: ''
+- ticker: 09618.HK
+  name: Jd Com Inc
+  weight: 1.0
+  note: ''
+- ticker: 06110.HK
+  name: Topsports International Holding Ltd
+  weight: 1.0
+  note: ''
+- ticker: 06186.HK
+  name: China Feihe Ltd
+  weight: 1.0
+  note: ''
+- ticker: 01908.HK
+  name: C&D International Investment Group Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00551.HK
+  name: Yue Yuen Ind
+  weight: 1.0
+  note: ''
+- ticker: 09987.HK
+  name: Yum China Holdings Inc
+  weight: 1.0
+  note: ''
+- ticker: 02888.HK
+  name: Standard Chartered PLC
+  weight: 1.0
+  note: ''
+- ticker: 00005.HK
+  name: HSBC Holdings PLC
+  weight: 1.0
+  note: ''
+- ticker: 00303.HK
+  name: VTech Holdings Ltd
+  weight: 1.0
+  note: ''
+- ticker: 01088.HK
+  name: China Shenhua Energy Co Ltd H
+  weight: 1.0
+  note: ''
+- ticker: 01308.HK
+  name: SITC International Holdings Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 03311.HK
+  name: China State Construction International Holdings Ltd
+  weight: 1.0
+  note: ''
+- ticker: 01836.HK
+  name: Stella International Holdings Ltd
+  weight: 1.0
+  note: ''
+- ticker: 09898.HK
+  name: Weibo Corp
+  weight: 1.0
+  note: ''
+- ticker: 00579.HK
+  name: Beijing Jingneng Clean Energy Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 01910.HK
+  name: Samsonite International SA
+  weight: 1.0
+  note: ''
+- ticker: 03306.HK
+  name: JNBY Design Ltd
+  weight: 1.0
+  note: ''
+- ticker: 03877.HK
+  name: CSSC Hong Kong Shipping Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 00564.HK
+  name: 00564.HK
+  weight: 1.0
+  note: ''
+- ticker: 06690.HK
+  name: Haier Smart Home Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 03968.HK
+  name: China Merchants Bank Co Ltd Class H
+  weight: 1.0
+  note: ''
+- ticker: 00941.HK
+  name: China Mobile Ltd
+  weight: 1.0
+  note: ''
