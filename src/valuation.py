@@ -554,20 +554,25 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
     Richness vs history lives in the valuation strip / basket detail — not here.
     """
     dd = rows["DD vs YTD peak"]
-    # Color axis: more negative DD → red. Map so cmin/cmax span the data.
+    labels = rows["Basket"].astype(str).map(_short_scatter_label)
     fig = go.Figure(
         go.Scatter(
             x=rows["avg_fwd_pe"],
             y=rows["YTD"] * 100,
             mode="markers+text",
-            text=rows["Basket"],
+            text=labels,
             textposition="top center",
-            textfont=dict(size=11),
+            textfont=dict(size=10),
+            cliponaxis=False,
             marker=dict(
                 size=16,
                 color=dd * 100,
                 colorscale=DD_SCALE,
-                colorbar=dict(title="已回调<br>vs YTD峰 %"),
+                colorbar=dict(
+                    title=dict(text="DD vs<br>YTD peak %", side="right"),
+                    thickness=14,
+                    len=0.75,
+                ),
                 line=dict(width=1, color="rgba(28,36,48,0.25)"),
             ),
             customdata=np.stack([
@@ -576,25 +581,39 @@ def fwd_pe_vs_ytd_scatter(rows: pd.DataFrame) -> go.Figure:
                 rows["fwd_vs_5y_median_premium"].fillna(0) * 100,
                 rows["_id"],
                 dd.fillna(0) * 100,
+                rows["Basket"].astype(str),
             ], axis=-1),
             hovertemplate=(
-                "%{text}<br>Fwd PE %{x:.1f}<br>YTD %{y:.1f}%"
-                "<br>已回调 %{customdata[4]:.1f}%"
+                "<b>%{customdata[5]}</b>"
+                "<br>Fwd PE %{x:.1f}<br>YTD %{y:.1f}%"
+                "<br>DD vs YTD peak %{customdata[4]:.1f}%"
                 "<br>PEG %{customdata[0]:.2f}<br>5y trail med %{customdata[1]:.1f}"
                 "<br>Fwd vs 5y med %{customdata[2]:+.0f}%<extra></extra>"
             ),
         )
     )
     fig.update_layout(
-        title="Fwd PE vs YTD return (color = 已回调 vs YTD peak)",
+        title="Fwd PE vs YTD return (color = DD vs YTD peak)",
         xaxis_title="Average Forward P/E",
         yaxis_title="YTD Return (%)",
-        margin=dict(l=40, r=20, t=50, b=40),
+        # Room for marker labels (top) and colorbar title (right).
+        margin=dict(l=48, r=72, t=72, b=48),
     )
     plotly_layout(fig, height=520)
-    fig.update_layout(hovermode="closest")
+    # Keep the extra margins — plotly_layout resets them tighter.
+    fig.update_layout(
+        hovermode="closest",
+        margin=dict(l=48, r=72, t=72, b=48),
+    )
     return fig
 
+
+def _short_scatter_label(name: str, max_len: int = 22) -> str:
+    """Truncate long basket names so scatter labels stay on-canvas."""
+    name = (name or "").strip()
+    if len(name) <= max_len:
+        return name
+    return name[: max_len - 1].rstrip() + "…"
 
 def return_drawdown_heatmap(rows: pd.DataFrame) -> go.Figure:
     """Homepage heatmap: 1M / 3M / YTD / DD vs YTD peak.

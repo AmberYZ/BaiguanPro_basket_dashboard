@@ -482,7 +482,7 @@ def sort_controls(
     for i, opt in enumerate(options):
         with cols[i + 1]:
             active = st.session_state[state_col] == opt
-            short = opt.replace("DD vs YTD peak", "已回调")
+            short = opt.replace("DD vs YTD peak", "DD")
             label = f"● {short}" if active else short
             if st.button(
                 label,

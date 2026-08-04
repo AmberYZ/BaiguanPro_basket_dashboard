@@ -352,8 +352,9 @@ maybe_open_from_chart(event_rel)
 if not val_rows.empty:
     st.subheader("Valuation vs returns")
     st.caption(
-        "X = Forward PE level · Y = YTD return · color = 已回调 vs YTD peak "
+        "X = Forward PE · Y = YTD return · color = drawdown vs YTD peak "
         "(red = deep washout, teal = still near highs). "
+        "Long basket names are truncated on the plot; hover for the full name. "
         "Valuation richness vs own history is on each basket's valuation strip."
     )
     scatter_data = val_rows.dropna(subset=["avg_fwd_pe", "YTD"])
