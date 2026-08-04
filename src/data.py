@@ -591,9 +591,13 @@ def update_fundamentals(tickers: list[str], log=print) -> None:
             row["pct_chg_1d"] = (s.iloc[-1] / s.iloc[-2] - 1) * 100
             row["rsi_14"] = _rsi(s)
             row["price_asof"] = pd.Timestamp(s.index[-1]).date().isoformat()
-            # Google Finance week windows (1M=4w, 3M=13w, 1Y=52w).
-            for weeks, col in ((4, "pct_1m"), (13, "pct_3m"), (52, "pct_1y")):
-                past = s[s.index <= s.index[-1] - pd.Timedelta(weeks=weeks)]
+            # Yahoo Finance calendar windows (1mo / 3mo / 1y).
+            for kwargs, col in (
+                ({"months": 1}, "pct_1m"),
+                ({"months": 3}, "pct_3m"),
+                ({"years": 1}, "pct_1y"),
+            ):
+                past = s[s.index <= s.index[-1] - pd.DateOffset(**kwargs)]
                 if not past.empty:
                     row[col] = (s.iloc[-1] / past.iloc[-1] - 1) * 100
             prior = s[s.index < year_start]

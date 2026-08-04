@@ -5,7 +5,8 @@ import streamlit as st
 from app_pages._shared import (basket_summary_rows, baskets_for_charts,
                                cache_banner, get_basket_index,
                                get_basket_index_stats, get_price,
-                               hide_draft_on_charts, UNIVERSAL_BENCHMARKS)
+                               hide_draft_on_charts, period_windows_panel,
+                               UNIVERSAL_BENCHMARKS)
 from src.analytics import (CHART_RANGES, basket_index, basket_index_ytd,
                            chart_range_start, perf_stats, rebase,
                            ticker_period_returns)
@@ -213,10 +214,12 @@ pct_cols = ["1W", "1M", "3M", "YTD", "1Y", "Since Inception", "Excess vs CSI300"
 st.caption(
     "Click a basket name to open its detail page. "
     "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
-    "own return using Google Finance windows "
-    "(1M=4 weeks, 3M=13 weeks, 1Y=52 weeks; YTD = since prior year-end close). "
+    "own return using Yahoo Finance windows "
+    "(1M/3M/6M = calendar months; 1Y/2Y/3Y/5Y = calendar years; "
+    "YTD = since prior year-end close). "
     "Since Inception / Excess / Max DD / Sharpe use the formal inception date."
 )
+period_windows_panel()
 market_table(
     df.drop(columns=["_id", "_tags"]),
     pct_cols=pct_cols,
@@ -227,11 +230,10 @@ market_table(
         "Max DD": "Maximum drawdown since inception (largest peak-to-trough decline).",
         "Sharpe": "Since inception: annualized daily return / annualized volatility (no risk-free rate).",
         "Since Inception": "Total return from the basket's inception date.",
-        "1Y": "Trailing 12-month return of equal-weight constituents (lookback), blank if price history is shorter.",
-        "1M": "Trailing 4-week return (Google Finance 1M window), equal-weight constituents.",
-        "3M": "Trailing 13-week return (Google Finance-style), equal-weight constituents.",
+        "1M": "Trailing 1 calendar month (Yahoo 1mo), equal-weight constituents.",
+        "3M": "Trailing 3 calendar months (Yahoo 3mo), equal-weight constituents.",
         "YTD": "From last close before Jan 1 to latest close, equal-weight constituents.",
-        "1Y": "Trailing 52-week return, equal-weight constituents.",
+        "1Y": "Trailing 1 calendar year (Yahoo 1y), equal-weight constituents.",
     },
 )
 

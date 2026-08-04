@@ -111,48 +111,150 @@ def rebase(series: pd.Series, start: pd.Timestamp) -> pd.Series | None:
     return s / s.iloc[0] * 100.0
 
 
-# Google Finance chart windows (verified against google.com/finance):
-# 1M = exactly 4 weeks. Longer tabs follow the same week grid used by
-# GOOGLEFINANCE return4 / return13 / return52 / return156 / return260.
-PERIOD_WEEKS: dict[str, int] = {
-    "1W": 1,
-    "1M": 4,
-    "3M": 13,
-    "6M": 26,
-    "1Y": 52,
-    "2Y": 104,
-    "3Y": 156,
-    "5Y": 260,
+# Yahoo Finance chart ranges (1mo / 3mo / 6mo / 1y / 2y / 5y / ytd):
+# calendar months & years via DateOffset — not Google's 4/13/52-week grid.
+PERIOD_OFFSETS: dict[str, dict[str, int]] = {
+    "1W": {"days": 7},
+    "1M": {"months": 1},
+    "3M": {"months": 3},
+    "6M": {"months": 6},
+    "1Y": {"years": 1},
+    "2Y": {"years": 2},
+    "3Y": {"years": 3},
+    "5Y": {"years": 5},
 }
 
-# Chart range controls — same cutoffs as PERIOD_WEEKS / YTD.
-CHART_RANGES: dict[str, str | int] = {
-    "3M": PERIOD_WEEKS["3M"],
-    "6M": PERIOD_WEEKS["6M"],
-    "YTD": "ytd",
-    "1Y": PERIOD_WEEKS["1Y"],
-    "2Y": PERIOD_WEEKS["2Y"],
-    "3Y": PERIOD_WEEKS["3Y"],
-    "5Y": PERIOD_WEEKS["5Y"],
+# Chart range controls — same cutoffs as PERIOD_OFFSETS / YTD.
+CHART_RANGES: dict[str, str] = {
+    "3M": "3M",
+    "6M": "6M",
+    "YTD": "YTD",
+    "1Y": "1Y",
+    "2Y": "2Y",
+    "3Y": "3Y",
+    "5Y": "5Y",
 }
 
 
 def period_cutoff(end: pd.Timestamp, period: str) -> pd.Timestamp:
-    """Start date for a Google-aligned window ending at ``end``."""
+    """Nominal start date for a Yahoo-aligned window ending at ``end``.
+
+    Actual return base = last available close on or before this cutoff
+    (see :func:`resolve_period_base`).
+    """
     if period == "YTD":
+        # YTD return uses last close *before* Jan 1; cutoff marks year start.
         return pd.Timestamp(end.year, 1, 1)
-    weeks = PERIOD_WEEKS.get(period)
-    if weeks is None:
+    spec = PERIOD_OFFSETS.get(period)
+    if spec is None:
         raise KeyError(f"Unknown period {period!r}")
-    return end - pd.Timedelta(weeks=weeks)
+    if "days" in spec:
+        return end - pd.Timedelta(days=spec["days"])
+    return end - pd.DateOffset(**spec)
+
+
+def resolve_period_base(
+    series: pd.Series,
+    period: str,
+    *,
+    end: pd.Timestamp | None = None,
+) -> dict | None:
+    """Resolve the exact base/end trading dates used for a period return.
+
+    Returns ``{period, end, cutoff, base, rule}`` or ``None`` if unavailable.
+    """
+    if series is None or len(series) < 2:
+        return None
+    end_ts = pd.Timestamp(end) if end is not None else pd.Timestamp(series.index[-1])
+    # Align to last print on/before requested end (handles mixed calendars).
+    up_to_end = series[series.index <= end_ts]
+    if up_to_end.empty:
+        return None
+    end_ts = pd.Timestamp(up_to_end.index[-1])
+
+    if period == "YTD":
+        year_start = pd.Timestamp(end_ts.year, 1, 1)
+        prior = series[series.index < year_start]
+        if not prior.empty:
+            base_ts = pd.Timestamp(prior.index[-1])
+            rule = "last close before Jan 1"
+        else:
+            in_year = series[(series.index >= year_start) & (series.index <= end_ts)]
+            if in_year.empty:
+                return None
+            base_ts = pd.Timestamp(in_year.index[0])
+            rule = "first print in year (no prior-year close)"
+        cutoff = year_start
+    else:
+        cutoff = period_cutoff(end_ts, period)
+        window = series[series.index <= cutoff]
+        if window.empty:
+            return None
+        base_ts = pd.Timestamp(window.index[-1])
+        spec = PERIOD_OFFSETS[period]
+        if "days" in spec:
+            rule = f"{spec['days']} calendar days (Yahoo-style)"
+        elif "months" in spec:
+            n = spec["months"]
+            rule = f"{n} calendar month{'s' if n != 1 else ''} (Yahoo {n}mo)"
+        else:
+            n = spec["years"]
+            rule = f"{n} calendar year{'s' if n != 1 else ''} (Yahoo {n}y)"
+
+    return {
+        "period": period,
+        "end": end_ts,
+        "cutoff": pd.Timestamp(cutoff),
+        "base": base_ts,
+        "rule": rule,
+    }
+
+
+def period_windows(
+    series: pd.Series,
+    periods: list[str] | None = None,
+    *,
+    end: pd.Timestamp | None = None,
+) -> list[dict]:
+    """Resolved windows for the standard return columns."""
+    periods = periods or ["1W", "1M", "3M", "YTD", "1Y"]
+    rows = []
+    for period in periods:
+        row = resolve_period_base(series, period, end=end)
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+def format_period_windows_line(
+    series: pd.Series | None,
+    periods: list[str] | None = None,
+    *,
+    end: pd.Timestamp | None = None,
+) -> str:
+    """One-line caption: ``1M 07-03→07-31 · 3M …`` for UI double-checks."""
+    if series is None or series.empty:
+        return ""
+    parts = []
+    asof = None
+    for row in period_windows(series, periods, end=end):
+        asof = row["end"]
+        parts.append(
+            f"{row['period']} {row['base'].strftime('%Y-%m-%d')}→"
+            f"{row['end'].strftime('%Y-%m-%d')}"
+        )
+    if not parts:
+        return ""
+    head = f"Return windows (as of {asof.strftime('%Y-%m-%d')}"
+    head += "; base = last close on/before cutoff): "
+    return head + " · ".join(parts)
 
 
 def chart_range_start(end: pd.Timestamp, choice: str) -> pd.Timestamp:
-    """Overview / detail chart window start (weeks or YTD)."""
-    value = CHART_RANGES[choice]
-    if value == "ytd":
-        return pd.Timestamp(end.year, 1, 1)
-    return end - pd.Timedelta(weeks=int(value))
+    """Overview / detail chart window start (Yahoo calendar periods or YTD)."""
+    if choice not in CHART_RANGES:
+        raise KeyError(f"Unknown chart range {choice!r}")
+    return period_cutoff(end, choice)
 
 
 def _series_period_return(
@@ -166,7 +268,7 @@ def _series_period_return(
     """Single-name return over a window ending at the last print.
 
     Prefer ``period`` keys (``1M`` / ``3M`` / ``YTD`` / …) — these follow
-    Google Finance week lookbacks. ``ytd=True`` uses last close before Jan 1.
+    Yahoo Finance calendar months/years. ``ytd=True`` uses last close before Jan 1.
     """
     if series is None or len(series) < 2:
         return None
@@ -210,7 +312,7 @@ _RET_KEY = {
 
 
 def series_period_returns(series: pd.Series) -> dict:
-    """All Google-aligned period returns for one price series."""
+    """All Yahoo-aligned period returns for one price series."""
     if series is None or series.empty:
         return {}
     out: dict = {"asof": series.index[-1]}
@@ -228,7 +330,7 @@ def ticker_period_returns(ticker: str) -> dict:
 
 
 def basket_period_returns(basket: Basket) -> dict:
-    """Weighted-average constituent period returns (Google windows).
+    """Weighted-average constituent period returns (Yahoo calendar windows).
 
     Each name's own period return is computed from its price series, then
     combined with basket weights among names that have a valid print for that
@@ -313,7 +415,7 @@ def perf_stats(
 def basket_perf_stats(basket: Basket) -> dict:
     """Basket stats: EW/weighted period returns + inception risk metrics.
 
-    Period returns average each constituent's own Google-window return.
+    Period returns average each constituent's own Yahoo-window return.
     Since Inception / Sharpe / Max DD use the formal inception buy-and-hold
     index when available, else the lookback index sliced at inception.
     """

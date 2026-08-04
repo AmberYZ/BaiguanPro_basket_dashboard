@@ -12,7 +12,7 @@ if str(ROOT) not in sys.path:
 
 from src.analytics import (  # noqa: E402
     basket_index, basket_index_for_stats, basket_perf_stats,
-    excess_vs_benchmark,
+    excess_vs_benchmark, format_period_windows_line, period_windows,
 )
 from src.baskets import load_baskets  # noqa: E402
 from src.data import BENCHMARKS, cache_age, load_fundamentals, load_price  # noqa: E402
@@ -129,3 +129,43 @@ def cache_banner(tickers: list[str] | None = None):
         return
     asof = market_asof((tickers or []) + UNIVERSAL_BENCHMARKS)
     admin_line(f"{asof} · cache updated {age} · benchmarks {', '.join(UNIVERSAL_BENCHMARKS)}")
+
+
+def period_windows_panel(
+    series=None,
+    *,
+    label: str = "CSI300",
+    periods: list[str] | None = None,
+) -> None:
+    """Show exact base→as-of dates for 1W/1M/3M/YTD/1Y so users can audit vs Yahoo."""
+    periods = periods or ["1W", "1M", "3M", "YTD", "1Y"]
+    if series is None:
+        series = get_price(UNIVERSAL_BENCHMARKS[0])
+        label = UNIVERSAL_BENCHMARKS[0]
+    if series is None or series.empty:
+        return
+    rows = period_windows(series, periods)
+    if not rows:
+        return
+    line = format_period_windows_line(series, periods)
+    if line:
+        st.caption(line)
+    with st.expander(f"Period window details (reference: {label})", expanded=False):
+        st.caption(
+            "Return = last close ÷ base close − 1. "
+            "Base = last available close on/before the cutoff "
+            "(YTD base = last close before Jan 1). "
+            "Each ticker uses its own calendar; dates below are from the "
+            f"{label} series as a shared reference."
+        )
+        table = pd.DataFrame([
+            {
+                "Period": r["period"],
+                "Rule": r["rule"],
+                "Cutoff": r["cutoff"].strftime("%Y-%m-%d"),
+                "Base close": r["base"].strftime("%Y-%m-%d"),
+                "As of": r["end"].strftime("%Y-%m-%d"),
+            }
+            for r in rows
+        ])
+        st.dataframe(table, hide_index=True, width="stretch")

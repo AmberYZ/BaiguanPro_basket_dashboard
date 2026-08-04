@@ -4,7 +4,7 @@ import streamlit as st
 
 from app_pages._shared import (STATUS_BADGE, cache_banner, get_basket_index,
                                get_basket_index_stats, get_baskets, get_price,
-                               UNIVERSAL_BENCHMARKS)
+                               period_windows_panel, UNIVERSAL_BENCHMARKS)
 from src.analytics import basket_index_ytd, basket_perf_stats, component_indices, rebase, ticker_period_returns
 from src.auth import flash_success
 from src.baskets import delete_basket, update_basket_fields
@@ -91,9 +91,21 @@ else:
     ])
     st.caption(
         "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
-        "own return (Google windows: 1M=4w, 3M=13w, 1Y=52w; YTD from prior "
-        "year-end). Since / Sharpe / Max DD = from formal inception."
+        "own return (Yahoo windows: 1M/3M = calendar months, 1Y = calendar year; "
+        "YTD from prior year-end). Since / Sharpe / Max DD = from formal inception."
     )
+    # Show windows on this basket's own price calendar (first name with history).
+    ref_series = None
+    ref_label = b.name
+    for c in b.constituents:
+        s = get_price(c.ticker)
+        if s is not None and not s.empty:
+            ref_series = s
+            ref_label = c.ticker
+            break
+    if ref_series is None and idx_stats is not None and not idx_stats.empty:
+        ref_series = idx_stats
+    period_windows_panel(ref_series, label=ref_label)
 
     chart_mode = st.radio(
         "Price chart",
