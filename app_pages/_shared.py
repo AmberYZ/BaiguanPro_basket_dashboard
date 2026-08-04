@@ -54,7 +54,7 @@ def get_basket_index(basket_id: str):
 
 @st.cache_data(ttl=300)
 def get_basket_index_stats(basket_id: str):
-    """Longer lookback index so 1W/1M/3M/YTD work for newly created baskets."""
+    """Longer lookback index so 5D/1M/3M/YTD work for newly created baskets."""
     baskets = {b.id: b for b in load_baskets()}
     return basket_index_for_stats(baskets[basket_id])
 
@@ -102,7 +102,7 @@ def basket_summary_rows(*, for_charts: bool = False) -> pd.DataFrame:
                 excess = excess_vs_benchmark(idx, bench)
         rows.append({
             "Basket": b.name,
-            "1W": stats.get("ret_1w"),
+            "5D": stats.get("ret_5d"),
             "1M": stats.get("ret_1m"),
             "3M": stats.get("ret_3m"),
             "YTD": stats.get("ret_ytd"),
@@ -137,8 +137,8 @@ def period_windows_panel(
     label: str = "CSI300",
     periods: list[str] | None = None,
 ) -> None:
-    """Show exact base→as-of dates for 1W/1M/3M/YTD/1Y so users can audit vs Yahoo."""
-    periods = periods or ["1W", "1M", "3M", "YTD", "1Y"]
+    """Show exact base→as-of dates for 5D/1M/3M/YTD/1Y so users can audit vs Yahoo."""
+    periods = periods or ["5D", "1M", "3M", "YTD", "1Y"]
     if series is None:
         series = get_price(UNIVERSAL_BENCHMARKS[0])
         label = UNIVERSAL_BENCHMARKS[0]
@@ -152,7 +152,9 @@ def period_windows_panel(
         st.caption(line)
     with st.expander(f"Period window details (reference: {label})", expanded=False):
         st.caption(
-            "Return = last close ÷ base close − 1. "
+            "Return = last close ÷ base close − 1 on split/dividend-adjusted prices "
+            "(same basis as Yahoo Trailing Total Returns; Yahoo's price chart % can "
+            "differ because it often uses unadjusted closes). "
             "Base = last available close on/before the cutoff "
             "(YTD base = last close before Jan 1). "
             "Each ticker uses its own calendar; dates below are from the "

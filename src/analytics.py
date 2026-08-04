@@ -111,27 +111,21 @@ def rebase(series: pd.Series, start: pd.Timestamp) -> pd.Series | None:
     return s / s.iloc[0] * 100.0
 
 
-# Yahoo Finance chart ranges (1mo / 3mo / 6mo / 1y / 2y / 5y / ytd):
-# calendar months & years via DateOffset — not Google's 4/13/52-week grid.
+# Yahoo Finance chart ranges (5d / 1mo / 3mo / 1y / 5y / ytd):
+# calendar days / months / years via DateOffset — matches Yahoo tabs.
 PERIOD_OFFSETS: dict[str, dict[str, int]] = {
-    "1W": {"days": 7},
+    "5D": {"days": 5},
     "1M": {"months": 1},
     "3M": {"months": 3},
-    "6M": {"months": 6},
     "1Y": {"years": 1},
-    "2Y": {"years": 2},
-    "3Y": {"years": 3},
     "5Y": {"years": 5},
 }
 
 # Chart range controls — same cutoffs as PERIOD_OFFSETS / YTD.
 CHART_RANGES: dict[str, str] = {
     "3M": "3M",
-    "6M": "6M",
     "YTD": "YTD",
     "1Y": "1Y",
-    "2Y": "2Y",
-    "3Y": "3Y",
     "5Y": "5Y",
 }
 
@@ -193,7 +187,8 @@ def resolve_period_base(
         base_ts = pd.Timestamp(window.index[-1])
         spec = PERIOD_OFFSETS[period]
         if "days" in spec:
-            rule = f"{spec['days']} calendar days (Yahoo-style)"
+            n = spec["days"]
+            rule = f"{n} calendar day{'s' if n != 1 else ''} (Yahoo {n}d)"
         elif "months" in spec:
             n = spec["months"]
             rule = f"{n} calendar month{'s' if n != 1 else ''} (Yahoo {n}mo)"
@@ -217,7 +212,7 @@ def period_windows(
     end: pd.Timestamp | None = None,
 ) -> list[dict]:
     """Resolved windows for the standard return columns."""
-    periods = periods or ["1W", "1M", "3M", "YTD", "1Y"]
+    periods = periods or ["5D", "1M", "3M", "YTD", "1Y"]
     rows = []
     for period in periods:
         row = resolve_period_base(series, period, end=end)
@@ -297,16 +292,13 @@ def _series_period_return(
     return last / float(window.iloc[-1]) - 1.0
 
 
-_PERIOD_KEYS = ("1W", "1M", "3M", "6M", "YTD", "1Y", "2Y", "3Y", "5Y")
+_PERIOD_KEYS = ("5D", "1M", "3M", "YTD", "1Y", "5Y")
 _RET_KEY = {
-    "1W": "ret_1w",
+    "5D": "ret_5d",
     "1M": "ret_1m",
     "3M": "ret_3m",
-    "6M": "ret_6m",
     "YTD": "ret_ytd",
     "1Y": "ret_1y",
-    "2Y": "ret_2y",
-    "3Y": "ret_3y",
     "5Y": "ret_5y",
 }
 

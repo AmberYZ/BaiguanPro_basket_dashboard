@@ -25,7 +25,7 @@ PERIOD_COLORS = {
     "YTD": BLUE,
     "3M": ORANGE,
     "1M": PURPLE,
-    "1W": GREEN,
+    "5D": GREEN,
     "1Y": "#BE185D",
 }
 

@@ -210,13 +210,13 @@ basket_links = {
     for _, row in df.iterrows()
 }
 
-pct_cols = ["1W", "1M", "3M", "YTD", "1Y", "Since Inception", "Excess vs CSI300", "Max DD"]
+pct_cols = ["5D", "1M", "3M", "YTD", "1Y", "Since Inception", "Excess vs CSI300", "Max DD"]
 st.caption(
     "Click a basket name to open its detail page. "
-    "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
+    "5D / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
     "own return using Yahoo Finance windows "
-    "(1M/3M/6M = calendar months; 1Y/2Y/3Y/5Y = calendar years; "
-    "YTD = since prior year-end close). "
+    "(5D = 5 calendar days; 1M/3M = calendar months; 1Y/5Y = calendar years; "
+    "YTD = since prior year-end close). Prices are split/dividend-adjusted. "
     "Since Inception / Excess / Max DD / Sharpe use the formal inception date."
 )
 period_windows_panel()
@@ -230,9 +230,10 @@ market_table(
         "Max DD": "Maximum drawdown since inception (largest peak-to-trough decline).",
         "Sharpe": "Since inception: annualized daily return / annualized volatility (no risk-free rate).",
         "Since Inception": "Total return from the basket's inception date.",
+        "5D": "Trailing 5 calendar days (Yahoo 5d), equal-weight constituents.",
         "1M": "Trailing 1 calendar month (Yahoo 1mo), equal-weight constituents.",
         "3M": "Trailing 3 calendar months (Yahoo 3mo), equal-weight constituents.",
-        "YTD": "From last close before Jan 1 to latest close, equal-weight constituents.",
+        "YTD": "From last close before Jan 1 to latest close (adjusted total return), equal-weight constituents.",
         "1Y": "Trailing 1 calendar year (Yahoo 1y), equal-weight constituents.",
     },
 )

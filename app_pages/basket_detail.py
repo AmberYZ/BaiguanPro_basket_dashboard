@@ -80,7 +80,7 @@ if idx_stats is None or idx_stats.empty:
 else:
     stats = basket_perf_stats(b)
     metric_grid([
-        ("1W", stats.get("ret_1w"), "pct"),
+        ("5D", stats.get("ret_5d"), "pct"),
         ("1M", stats.get("ret_1m"), "pct"),
         ("3M", stats.get("ret_3m"), "pct"),
         ("YTD", stats.get("ret_ytd"), "pct"),
@@ -90,9 +90,11 @@ else:
         ("Max DD", stats.get("max_dd"), "pct"),
     ])
     st.caption(
-        "1W / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
-        "own return (Yahoo windows: 1M/3M = calendar months, 1Y = calendar year; "
-        "YTD from prior year-end). Since / Sharpe / Max DD = from formal inception."
+        "5D / 1M / 3M / YTD / 1Y = equal-weight average of each constituent's "
+        "own return (Yahoo windows: 5D = 5 calendar days, 1M/3M = calendar months, "
+        "1Y = calendar year; YTD from prior year-end). Prices are "
+        "split/dividend-adjusted (matches Yahoo Trailing Total Returns, not the "
+        "unadjusted chart scribble). Since / Sharpe / Max DD = from formal inception."
     )
     # Show windows on this basket's own price calendar (first name with history).
     ref_series = None
