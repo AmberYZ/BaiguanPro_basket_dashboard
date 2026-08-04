@@ -137,7 +137,7 @@ def period_windows_panel(
     label: str = "CSI300",
     periods: list[str] | None = None,
 ) -> None:
-    """Show exact base→as-of dates for 5D/1M/3M/YTD/1Y so users can audit vs Yahoo."""
+    """Show exact base→as-of dates for 5D/1M/3M/YTD/1Y, plus Xueqiu check dates."""
     periods = periods or ["5D", "1M", "3M", "YTD", "1Y"]
     if series is None:
         series = get_price(UNIVERSAL_BENCHMARKS[0])
@@ -152,21 +152,34 @@ def period_windows_panel(
         st.caption(line)
     with st.expander(f"Period window details (reference: {label})", expanded=False):
         st.caption(
-            "Return = last close ÷ base close − 1 on split/dividend-adjusted prices "
-            "(same basis as Yahoo Trailing Total Returns; Yahoo's price chart % can "
-            "differ because it often uses unadjusted closes). "
+            "Our return = as-of close ÷ base close − 1 on split/dividend-adjusted "
+            "prices (same as Yahoo Trailing Total Returns; Yahoo/Xueqiu price-chart "
+            "% can differ if they use unadjusted closes). "
             "Base = last available close on/before the cutoff "
-            "(YTD base = last close before Jan 1). "
-            "Each ticker uses its own calendar; dates below are from the "
-            f"{label} series as a shared reference."
+            "(YTD base = last close before Jan 1)."
+        )
+        st.caption(
+            "雪球核对 / Xueqiu check: 区间统计 treats the start date you type as "
+            "exclusive — its 起始收盘价 is the *previous* trading day's close. "
+            "To match our number, set 前复权, then enter the **Xueqiu start** column "
+            "(next trading day after our base) → our As of. "
+            f"Dates below use the {label} calendar as a shared reference; "
+            "each ticker may shift a day on holidays."
         )
         table = pd.DataFrame([
             {
                 "Period": r["period"],
+                "Our interval (base→as of)": (
+                    f"{r['base'].strftime('%Y-%m-%d')} → "
+                    f"{r['end'].strftime('%Y-%m-%d')}"
+                ),
+                "Xueqiu 区间统计 enter": (
+                    f"{r['xueqiu_start'].strftime('%Y-%m-%d')} → "
+                    f"{r['end'].strftime('%Y-%m-%d')}"
+                    if r.get("xueqiu_start") is not None
+                    else "—"
+                ),
                 "Rule": r["rule"],
-                "Cutoff": r["cutoff"].strftime("%Y-%m-%d"),
-                "Base close": r["base"].strftime("%Y-%m-%d"),
-                "As of": r["end"].strftime("%Y-%m-%d"),
             }
             for r in rows
         ])

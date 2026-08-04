@@ -205,19 +205,38 @@ def resolve_period_base(
     }
 
 
+def next_trading_day(series: pd.Series, after: pd.Timestamp) -> pd.Timestamp | None:
+    """First print strictly after ``after`` (for Xueqiu 区间统计 start input)."""
+    if series is None or series.empty:
+        return None
+    later = series[series.index > pd.Timestamp(after)]
+    if later.empty:
+        return None
+    return pd.Timestamp(later.index[0])
+
+
 def period_windows(
     series: pd.Series,
     periods: list[str] | None = None,
     *,
     end: pd.Timestamp | None = None,
 ) -> list[dict]:
-    """Resolved windows for the standard return columns."""
+    """Resolved windows for the standard return columns.
+
+    Each row also includes ``xueqiu_start``: the date to type as the *start*
+    in Xueqiu 区间统计 so its 起始收盘价 equals our base close. Xueqiu uses
+    the previous trading day's close as the interval base when you enter a
+    start date, so ``xueqiu_start`` = next trading day after our ``base``.
+    """
     periods = periods or ["5D", "1M", "3M", "YTD", "1Y"]
     rows = []
     for period in periods:
         row = resolve_period_base(series, period, end=end)
-        if row is not None:
-            rows.append(row)
+        if row is None:
+            continue
+        row = dict(row)
+        row["xueqiu_start"] = next_trading_day(series, row["base"])
+        rows.append(row)
     return rows
 
 
@@ -240,8 +259,8 @@ def format_period_windows_line(
         )
     if not parts:
         return ""
-    head = f"Return windows (as of {asof.strftime('%Y-%m-%d')}"
-    head += "; base = last close on/before cutoff): "
+    head = f"Our return windows (as of {asof.strftime('%Y-%m-%d')}; "
+    head += "base = close on that day): "
     return head + " · ".join(parts)
 
 

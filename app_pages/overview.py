@@ -230,7 +230,9 @@ st.caption(
     "own return using Yahoo Finance windows "
     "(5D = 5 calendar days; 1M/3M = calendar months; 1Y/5Y = calendar years; "
     "YTD = since prior year-end close). Prices are split/dividend-adjusted. "
-    "Since Inception / Excess / Max DD / Sharpe use the formal inception date."
+    "Since Inception / Excess / Max DD / Sharpe use the formal inception date. "
+    "To double-check a number on 雪球区间统计 (前复权), open Period window details "
+    "and type the **Xueqiu enter** dates — not our base date (雪球起点会再往前挪一天)."
 )
 period_windows_panel()
 market_table(

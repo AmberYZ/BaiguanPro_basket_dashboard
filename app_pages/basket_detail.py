@@ -94,7 +94,9 @@ else:
         "own return (Yahoo windows: 5D = 5 calendar days, 1M/3M = calendar months, "
         "1Y = calendar year; YTD from prior year-end). Prices are "
         "split/dividend-adjusted (matches Yahoo Trailing Total Returns, not the "
-        "unadjusted chart scribble). Since / Sharpe / Max DD = from formal inception."
+        "unadjusted chart scribble). Since / Sharpe / Max DD = from formal inception. "
+        "雪球核对: use **Xueqiu 区间统计 enter** dates in Period window details "
+        "(前复权) — not our base date."
     )
     # Show windows on this basket's own price calendar (first name with history).
     ref_series = None
