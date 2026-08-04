@@ -8,7 +8,7 @@ from app_pages._shared import (basket_summary_rows, baskets_for_charts,
                                hide_draft_on_charts, period_windows_panel,
                                UNIVERSAL_BENCHMARKS)
 from src.analytics import (CHART_RANGES, basket_index, basket_index_ytd,
-                           chart_range_start, perf_stats, rebase,
+                           chart_range_start, perf_stats, rebase_for_period,
                            ticker_period_returns)
 from src.auth import with_auth
 from src.baskets import load_baskets
@@ -23,8 +23,21 @@ from src.valuation import (basket_valuation, fwd_pe_vs_ytd_scatter,
                            return_drawdown_heatmap, richness_label, ytd_drawdown)
 
 
-def range_start(end: pd.Timestamp, choice: str) -> pd.Timestamp:
-    return chart_range_start(end, choice)
+def range_start(
+    end: pd.Timestamp,
+    choice: str,
+    reference: pd.Series | None = None,
+) -> pd.Timestamp:
+    return chart_range_start(end, choice, reference=reference)
+
+
+def _chart_reference_series() -> pd.Series | None:
+    """CSI300 (or first available universal BM) anchors shared chart bases."""
+    for bm in UNIVERSAL_BENCHMARKS:
+        series = get_price(bm)
+        if series is not None and not series.empty:
+            return series
+    return None
 
 
 def open_basket(basket_id: str) -> None:
@@ -267,7 +280,9 @@ if not ends:
     st.info("No price series available for the current filter.")
 else:
     latest = pd.Timestamp(max(ends))
-    start = range_start(latest, range_choice)
+    ref = _chart_reference_series()
+    start = range_start(latest, range_choice, reference=ref)
+    axis_start = start
 
     for b in baskets:
         obj = basket_objs.get(b.id)
@@ -276,6 +291,7 @@ else:
         idx = basket_index(obj, start=start)
         if idx is None or idx.empty:
             continue
+        axis_start = min(axis_start, pd.Timestamp(idx.index[0]))
         fig.add_trace(go.Scatter(
             x=idx.index,
             y=idx.values,
@@ -288,9 +304,10 @@ else:
         bench = get_price(bm)
         if bench is None or bench.empty:
             continue
-        r = rebase(bench, start)
+        r = rebase_for_period(bench, range_choice, end=latest)
         if r is None or r.empty:
             continue
+        axis_start = min(axis_start, pd.Timestamp(r.index[0]))
         fig.add_trace(go.Scatter(
             x=r.index,
             y=r.values,
@@ -299,7 +316,7 @@ else:
             line=dict(width=1.5, dash="dash"),
         ))
 
-    fig.update_xaxes(range=[start, latest])
+    fig.update_xaxes(range=[axis_start, latest])
     fig.update_yaxes(title="Rebased to 100 at range start")
     plotly_layout(fig, height=460)
     event = st.plotly_chart(
@@ -308,8 +325,10 @@ else:
     )
     maybe_open_from_chart(event)
     st.caption(
-        f"All series are rebased to 100 at the start of {range_choice} "
-        f"({start.date()}). Click a basket line to open its detail page."
+        f"All series are rebased to 100 at the {range_choice} period base "
+        f"(same rule as table returns; {start.date()} on the CSI300 calendar). "
+        f"Benchmark lines use each series' own base so the chart endpoint "
+        f"matches Relative performance. Click a basket line to open detail."
     )
 
 st.subheader("Relative performance")
@@ -403,11 +422,16 @@ for row in range(0, len(baskets), 2):
                 )
                 mini = go.Figure()
                 mini_end = latest if ends else pd.Timestamp.today()
-                mini_start = range_start(pd.Timestamp(mini_end), many_range)
+                mini_ref = _chart_reference_series()
+                mini_start = range_start(
+                    pd.Timestamp(mini_end), many_range, reference=mini_ref,
+                )
+                mini_axis = mini_start
                 obj = basket_objs.get(b.id)
                 if obj is not None:
                     basket_window = basket_index(obj, start=mini_start)
                     if basket_window is not None and not basket_window.empty:
+                        mini_axis = min(mini_axis, pd.Timestamp(basket_window.index[0]))
                         mini.add_trace(go.Scatter(
                             x=basket_window.index, y=basket_window.values, name="Basket",
                             customdata=[b.id] * len(basket_window),
@@ -417,15 +441,16 @@ for row in range(0, len(baskets), 2):
                     s = get_price(bm)
                     if s is None:
                         continue
-                    r = rebase(s, mini_start)
+                    r = rebase_for_period(s, many_range, end=pd.Timestamp(mini_end))
                     if r is not None and not r.empty:
+                        mini_axis = min(mini_axis, pd.Timestamp(r.index[0]))
                         mini.add_trace(go.Scatter(
                             x=r.index, y=r.values, name=bm,
                             mode="lines",
                             line=dict(width=1.2, dash="dot"),
                         ))
                 mini.update_yaxes(title=None)
-                mini.update_xaxes(title=None, range=[mini_start, mini_end])
+                mini.update_xaxes(title=None, range=[mini_axis, mini_end])
                 plotly_layout(mini, height=250)
                 card_event = st.plotly_chart(
                     mini, width="stretch", key=f"many_{b.id}_{nav_nonce}",

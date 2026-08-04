@@ -245,11 +245,39 @@ def format_period_windows_line(
     return head + " · ".join(parts)
 
 
-def chart_range_start(end: pd.Timestamp, choice: str) -> pd.Timestamp:
-    """Overview / detail chart window start (Yahoo calendar periods or YTD)."""
+def chart_range_start(
+    end: pd.Timestamp,
+    choice: str,
+    reference: pd.Series | None = None,
+) -> pd.Timestamp:
+    """Chart rebase start — same base date as table / bar period returns.
+
+    When ``reference`` is given, uses :func:`resolve_period_base` (YTD = last
+    close *before* Jan 1; 1M/1Y = last close on/before the Yahoo cutoff).
+    Without a reference, falls back to :func:`period_cutoff` (YTD = Jan 1),
+    which makes the chart start at the first print *after* New Year and
+    disagree with YTD table returns — pass a reference on Overview charts.
+    """
     if choice not in CHART_RANGES:
         raise KeyError(f"Unknown chart range {choice!r}")
+    if reference is not None and not reference.empty:
+        row = resolve_period_base(reference, choice, end=end)
+        if row is not None:
+            return pd.Timestamp(row["base"])
     return period_cutoff(end, choice)
+
+
+def rebase_for_period(
+    series: pd.Series,
+    choice: str,
+    *,
+    end: pd.Timestamp | None = None,
+) -> pd.Series | None:
+    """Rebase ``series`` to 100 at the same base used for period returns."""
+    row = resolve_period_base(series, choice, end=end)
+    if row is None:
+        return None
+    return rebase(series, row["base"])
 
 
 def _series_period_return(
