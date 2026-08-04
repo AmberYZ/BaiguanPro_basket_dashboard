@@ -1,5 +1,5 @@
 id: shareholder-return
-name: Shareholder Return & Buyback (A shares top 20)
+name: Shareholder Return & Buyback (A shares top 30)
 status: active
 author: Baiguan Team
 created: 2026-04-01
@@ -105,5 +105,45 @@ constituents:
   note: ''
 - ticker: 601021.SH
   name: Spring Airlines Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600887.SH
+  name: 伊利股份
+  weight: 1.0
+  note: ''
+- ticker: 601088.SH
+  name: China Shenhua Energy Co
+  weight: 1.0
+  note: ''
+- ticker: 000423.SZ
+  name: Shan Dong Dong-E E-Jiao Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002027.SZ
+  name: Focus Media Information Technology Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002032.SZ
+  name: Zhejiang Supor Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600546.SH
+  name: Shanxi Coal International Energy Group Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 000568.SZ
+  name: Luzhou Lao Jiao Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 605090.SH
+  name: Jiangxi Jovo Energy Co. Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600803.SH
+  name: ENN Ecological Holdings Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 603156.SH
+  name: Hebei Yangyuan ZhiHui Beverage Co Ltd
   weight: 1.0
   note: ''
