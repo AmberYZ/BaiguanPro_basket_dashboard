@@ -1,0 +1,40 @@
+id: grid-forming-storage
+name: Grid-forming storage
+status: proposed
+author: Amber Zhang
+created: '2026-09-14'
+inception: '2026-09-14'
+tags:
+- Power grid
+thesis: ''
+benchmarks:
+- CSI300
+- SPX
+- NDX
+newsletters: []
+watchpoints: []
+constituents:
+- ticker: 300274.SZ
+  name: Sungrow Power Supply Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 600406.SH
+  name: NARI Technology Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 300827.SZ
+  name: Sineng Electric Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002335.SZ
+  name: Xiamen Kehua Hengsheng
+  weight: 1.0
+  note: ''
+- ticker: 603063.SH
+  name: Shenzhen Hopewind Elec Co Ltd
+  weight: 1.0
+  note: ''
+- ticker: 002028.SZ
+  name: Sieyuan Electric Co Ltd
+  weight: 1.0
+  note: ''
